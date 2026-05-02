@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Sound Of…</title>
+<style>
+  :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#ff6a3d; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 24px 96px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+  .top a { color: var(--mute); text-decoration: none; }
+  .top a:hover { color: var(--ink); }
+
+  .hero { font-size: clamp(36px, 7vw, 56px); line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
+  .hero em { font-style: italic; color: var(--accent); }
+  .lede { color: var(--mute); margin: 0 0 28px; }
+
+  .ask { display: flex; gap: 10px; }
+  .ask input { flex: 1; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font: inherit; outline: none; }
+  .ask input:focus { border-color: var(--accent); }
+  .ask button { background: var(--accent); color: #1a0f08; border: none; border-radius: 12px; padding: 0 24px; font: inherit; font-weight: 700; cursor: pointer; }
+  .ask button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .examples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .ex { font-size: 13px; color: var(--mute); padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+  .ex:hover { border-color: var(--accent); color: var(--ink); }
+
+  .status { margin-top: 16px; min-height: 22px; color: var(--mute); font-size: 14px; }
+  .err { color: #ff7070; }
+
+  .player { margin-top: 36px; display: none; }
+  .player.show { display: block; }
+  .frame { aspect-ratio: 16/9; width: 100%; border-radius: 14px; overflow: hidden; background:#000; border: 1px solid var(--line); position: relative; }
+  .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
+  .frame.empty { display:flex; align-items:center; justify-content:center; }
+  .frame.empty a { padding: 12px 20px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; }
+
+  .now { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 4px; gap: 12px; flex-wrap: wrap; }
+  .now .who { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+  .now .who .y { color: var(--mute); font-size: 13px; margin-left: 6px; font-weight: 500; }
+  .why { color: var(--mute); margin: 0 0 18px; line-height: 1.5; }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  .controls button { background: var(--accent); color: #1a0f08; border: none; border-radius: 999px; padding: 10px 22px; font: inherit; font-weight: 700; cursor: pointer; }
+  .controls button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+  .controls button.ghost:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/">← Music Toys</a>
+    <span>001 · Sound Of</span>
+  </div>
+
+  <h1 class="hero">The sound <em>of…</em></h1>
+  <p class="lede">Type literally anything. A noun, a feeling, a memory, a Tuesday. Get a song that is that thing.</p>
+
+  <div class="ask">
+    <input id="input" type="text" placeholder='"burnt toast" · "buying a couch" · "1997 in your bedroom"' autofocus />
+    <button id="go">Play</button>
+  </div>
+
+  <div class="examples">
+    <span class="ex" data-v="burnt toast">burnt toast</span>
+    <span class="ex" data-v="buying a couch">buying a couch</span>
+    <span class="ex" data-v="leaving home at 19">leaving home at 19</span>
+    <span class="ex" data-v="watching your friend lie">watching your friend lie</span>
+    <span class="ex" data-v="Tuesday afternoon in 1997">Tuesday afternoon, 1997</span>
+    <span class="ex" data-v="the smell of a movie theater">smell of a movie theater</span>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <section class="player" id="player">
+    <div class="frame" id="frame"></div>
+    <div class="now"><div class="who" id="who"></div></div>
+    <p class="why" id="why"></p>
+    <div class="controls">
+      <button id="another">Another →</button>
+      <button class="ghost" id="newvibe">New input</button>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+let history = [];
+
+document.querySelectorAll(".ex").forEach(el => el.addEventListener("click", () => { $("#input").value = el.dataset.v; go(); }));
+$("#input").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+$("#go").addEventListener("click", go);
+$("#another").addEventListener("click", go);
+$("#newvibe").addEventListener("click", () => { history = []; $("#player").classList.remove("show"); $("#input").focus(); $("#input").select(); });
+
+async function go() {
+  const input = $("#input").value.trim();
+  if (input.length < 1) return;
+  setStatus("Picking…");
+  $("#go").disabled = true;
+  $("#another").disabled = true;
+  try {
+    const res = await fetch("/api/sound-of", {
+      method: "POST", headers: {"content-type":"application/json"},
+      body: JSON.stringify({ input, already_heard: history }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    render(data.pick);
+    setStatus("");
+  } catch (e) { setStatus(e.message, true); }
+  finally { $("#go").disabled = false; $("#another").disabled = false; }
+}
+
+function setStatus(msg, err = false) { const s = $("#status"); s.className = "status" + (err ? " err" : ""); s.textContent = msg; }
+
+function render(p) {
+  const tag = `${p.artist} — ${p.track}`;
+  history = [tag, ...history.filter(h => h !== tag)].slice(0, 12);
+  const frame = $("#frame");
+  if (p.videoId) {
+    frame.classList.remove("empty");
+    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(p.videoId)}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+  } else {
+    frame.classList.add("empty");
+    frame.innerHTML = `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a>`;
+  }
+  $("#who").innerHTML = `${esc(p.artist)} — ${esc(p.track)} <span class="y">${esc(p.year || "")}</span>`;
+  $("#why").textContent = p.why || "";
+  $("#player").classList.add("show");
+  $("#player").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+</script>
+</body>
+</html>

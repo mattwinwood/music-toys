@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Music Toys — five experiments</title>
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --ink: #f5f5f7;
+    --mute: #888892;
+    --line: #25252d;
+    --panel: #131318;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 56px 24px 96px; }
+  header { margin-bottom: 48px; }
+  .kicker { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+  h1 { font-size: 44px; line-height: 1.05; letter-spacing: -0.02em; margin: 12px 0 8px; max-width: 18ch; }
+  h1 em { font-style: italic; color: var(--mute); }
+  .lede { color: var(--mute); margin: 0; max-width: 60ch; }
+
+  .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-top: 36px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
+  .toy {
+    border: 1px solid var(--line); border-radius: 14px; padding: 24px;
+    background: var(--panel);
+    transition: transform .15s ease, border-color .15s ease, background .25s ease;
+    display: block; position: relative; overflow: hidden;
+  }
+  .toy::before {
+    content: ""; position: absolute; inset: 0; opacity: 0;
+    transition: opacity .25s ease; pointer-events: none;
+    background: var(--c, #ff6a3d);
+    mix-blend-mode: overlay;
+  }
+  .toy:hover { transform: translateY(-2px); border-color: var(--c, #ff6a3d); }
+  .toy:hover::before { opacity: 0.15; }
+  .toy .num { font: 13px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--c, #ff6a3d); letter-spacing: 0.1em; }
+  .toy h2 { margin: 8px 0 6px; font-size: 22px; letter-spacing: -0.01em; line-height: 1.2; }
+  .toy p { color: var(--mute); margin: 0; font-size: 14px; line-height: 1.5; }
+  .toy .arrow { display: inline-block; margin-top: 18px; font-size: 13px; color: var(--ink); position: relative; z-index: 1; }
+
+  footer { margin-top: 64px; font-size: 12px; color: var(--mute); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Music Toys</div>
+    <h1>Five experiments. <em>Are any of these fun?</em></h1>
+    <p class="lede">Each one is its own thing. No connections, no funnel, no "now upgrade to the pro version." Just little machines for messing with music.</p>
+  </header>
+
+  <div class="grid">
+    <a class="toy" style="--c:#ff6a3d" href="/sound-of">
+      <span class="num">001</span>
+      <h2>The Sound Of…</h2>
+      <p>Type any noun, phrase, memory, or feeling. Get a real song that <em>is</em> that thing. Burnt toast. Tuesday afternoon in 1997. Leaving home at 19.</p>
+      <span class="arrow">Play →</span>
+    </a>
+    <a class="toy" style="--c:#3da4ff" href="/almost-remember">
+      <span class="num">002</span>
+      <h2>The Song You Almost Remember</h2>
+      <p>Describe a song you can't quite place. Even just a mood, a TV show, a piece of a melody. The detective tries to find it.</p>
+      <span class="arrow">Play →</span>
+    </a>
+    <a class="toy" style="--c:#9d6cff" href="/decade">
+      <span class="num">003</span>
+      <h2>Decade Compass</h2>
+      <p>Drag a point on a 2D map — year on one axis, energy on the other. The song playing crossfades to whatever lives at that exact coordinate.</p>
+      <span class="arrow">Play →</span>
+    </a>
+    <a class="toy" style="--c:#5ad17a" href="/two-truths">
+      <span class="num">004</span>
+      <h2>Two Truths and a Lie</h2>
+      <p>Three songs. Two share a hidden trait — same producer, same drummer, same studio. One doesn't. Pick the lie.</p>
+      <span class="arrow">Play →</span>
+    </a>
+    <a class="toy" style="--c:#ffce3d" href="/dont-exist">
+      <span class="num">005</span>
+      <h2>Songs That Don't Exist</h2>
+      <p>Describe a song that doesn't exist. "If My Chemical Romance had a folk album." "What Drake would sound like in 1968." Get the closest real thing.</p>
+      <span class="arrow">Play →</span>
+    </a>
+  </div>
+
+  <footer>None of this is precious. If a toy isn't fun, kill it. The point is finding the one that hits.</footer>
+</div>
+</body>
+</html>

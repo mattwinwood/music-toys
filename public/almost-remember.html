@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Song You Almost Remember</title>
+<style>
+  :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#3da4ff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 24px 96px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+  .top a { color: var(--mute); text-decoration: none; }
+  .top a:hover { color: var(--ink); }
+
+  .hero { font-size: clamp(32px, 6vw, 48px); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
+  .hero em { font-style: italic; color: var(--accent); }
+  .lede { color: var(--mute); margin: 0 0 28px; max-width: 60ch; }
+
+  textarea { width: 100%; min-height: 130px; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font: inherit; resize: vertical; outline: none; }
+  textarea:focus { border-color: var(--accent); }
+
+  .row { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { background: var(--accent); color: #08111a; border: none; border-radius: 12px; padding: 12px 22px; font: inherit; font-weight: 700; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+
+  .status { margin-top: 16px; min-height: 22px; color: var(--mute); font-size: 14px; }
+  .err { color: #ff7070; }
+
+  .result { margin-top: 32px; display: none; }
+  .result.show { display: block; }
+
+  .best { background: linear-gradient(180deg, var(--panel) 0%, #1c1c26 100%); border: 1px solid var(--accent); border-radius: 14px; padding: 22px 24px; margin-bottom: 20px; }
+  .conf-bar { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+  .conf-bar .fill { height: 100%; background: var(--accent); transition: width .4s ease; }
+  .conf-label { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; display: block; }
+  .who { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; margin: 0 0 4px; }
+  .who .y { color: var(--mute); font-size: 13px; margin-left: 6px; font-weight: 500; letter-spacing: 0.05em; }
+  .why { color: var(--ink); margin: 12px 0 14px; line-height: 1.5; }
+  .frame { aspect-ratio: 16/9; width: 100%; border-radius: 10px; overflow: hidden; background:#000; border: 1px solid var(--line); position: relative; margin-top: 14px; }
+  .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
+  .frame.empty { display:flex; align-items:center; justify-content:center; }
+  .frame.empty a { padding: 12px 20px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; }
+
+  .alt-section h3 { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+  .alt { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; }
+  .alt .who { font-size: 17px; }
+  .alt .why { font-size: 14px; margin: 6px 0 10px; color: var(--mute); }
+  .alt .frame { aspect-ratio: 16/9; }
+
+  .help { margin-top: 18px; padding: 12px 16px; background: var(--panel); border-left: 3px solid var(--accent); border-radius: 8px; font-size: 14px; color: var(--mute); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/">← Music Toys</a>
+    <span>002 · Almost Remember</span>
+  </div>
+
+  <h1 class="hero">The song you <em>almost</em> remember.</h1>
+  <p class="lede">Describe what you've got — even if it's vague. The mood. A piece of melody. A TV show it was on. The year you heard it. Whatever you've got. The detective will try.</p>
+
+  <textarea id="desc" placeholder="e.g. There's a 2000s song with a slow piano intro and a guy crying at the chorus. Pretty sure it was on Grey's Anatomy. The piano is real lonely."></textarea>
+
+  <div class="row">
+    <button id="go">Find it</button>
+    <button class="ghost" id="clear">Clear</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <section class="result" id="result">
+    <div class="best">
+      <span class="conf-label" id="confLabel"></span>
+      <div class="conf-bar"><div class="fill" id="confFill"></div></div>
+      <div class="who" id="bestWho"></div>
+      <p class="why" id="bestWhy"></p>
+      <div class="frame" id="bestFrame"></div>
+    </div>
+
+    <div class="alt-section" id="altSection">
+      <h3>Other candidates</h3>
+      <div id="alts"></div>
+    </div>
+
+    <div class="help" id="help"></div>
+  </section>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+
+$("#clear").addEventListener("click", () => { $("#desc").value = ""; $("#result").classList.remove("show"); $("#status").textContent = ""; });
+$("#go").addEventListener("click", go);
+
+async function go() {
+  const description = $("#desc").value.trim();
+  if (description.length < 8) { setStatus("A few more details, even if vague.", true); return; }
+  setStatus("Sleuthing…");
+  $("#go").disabled = true;
+  try {
+    const res = await fetch("/api/remember", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ description }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    render(data.result);
+    setStatus("");
+  } catch (e) { setStatus(e.message, true); }
+  finally { $("#go").disabled = false; }
+}
+
+function setStatus(msg, err = false) { const s = $("#status"); s.className = "status" + (err ? " err" : ""); s.textContent = msg; }
+
+function frameHtml(item) {
+  if (item.videoId) {
+    return `<div class="frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(item.videoId)}?rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
+  }
+  return `<div class="frame empty"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(item.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a></div>`;
+}
+
+function render(r) {
+  const b = r.best_guess || {};
+  const conf = Math.round((b.confidence || 0) * 100);
+  $("#confLabel").textContent = `Best guess · ${conf}% confidence`;
+  $("#confFill").style.width = `${conf}%`;
+  $("#bestWho").innerHTML = `${esc(b.artist)} — ${esc(b.track)} <span class="y">${esc(b.year || "")}</span>`;
+  $("#bestWhy").textContent = b.why_this_matches || "";
+  $("#bestFrame").outerHTML = frameHtml(b).replace('class="frame"', 'class="frame" id="bestFrame"');
+
+  const alts = r.alternates || [];
+  if (alts.length) {
+    $("#altSection").style.display = "";
+    $("#alts").innerHTML = alts.map(a => `
+      <div class="alt">
+        <div class="who">${esc(a.artist)} — ${esc(a.track)} <span class="y">${esc(a.year || "")}</span></div>
+        <div class="why">${esc(a.why_this_matches)}</div>
+        ${frameHtml(a)}
+      </div>`).join("");
+  } else {
+    $("#altSection").style.display = "none";
+  }
+
+  if (r.what_would_help) {
+    $("#help").style.display = "";
+    $("#help").textContent = `Couldn't fully nail it — ${r.what_would_help}`;
+  } else {
+    $("#help").style.display = "none";
+  }
+
+  $("#result").classList.add("show");
+  $("#result").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+</script>
+</body>
+</html>

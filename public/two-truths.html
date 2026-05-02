@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Two Truths and a Lie</title>
+<style>
+  :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#5ad17a; --wrong:#ff5a5a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 24px 96px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+  .top a { color: var(--mute); text-decoration: none; }
+  .top a:hover { color: var(--ink); }
+
+  .hero { font-size: clamp(32px, 6vw, 48px); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
+  .hero em { color: var(--accent); font-style: italic; }
+  .lede { color: var(--mute); margin: 0 0 22px; max-width: 60ch; }
+
+  .scoreboard { display: flex; gap: 18px; align-items: baseline; margin: 14px 0 20px; flex-wrap: wrap; }
+  .score { font: 14px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--mute); }
+  .score b { color: var(--ink); font-size: 20px; }
+  .streak { color: var(--accent); }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .controls .diff { display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; }
+  .controls .diff button { background: transparent; color: var(--mute); border: none; border-radius: 999px; padding: 8px 16px; font: inherit; font-size: 13px; cursor: pointer; }
+  .controls .diff button.on { background: var(--accent); color: #0a1d12; font-weight: 700; }
+  .controls > button { background: var(--accent); color: #0a1d12; border: none; border-radius: 999px; padding: 10px 22px; font: inherit; font-weight: 700; cursor: pointer; }
+  .controls > button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .controls > button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+
+  .prompt { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; }
+  .prompt .q { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 0 0 4px; }
+  .prompt .t { font-size: 18px; font-weight: 700; }
+
+  .songs { display: grid; gap: 14px; grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 760px) { .songs { grid-template-columns: 1fr; } }
+  .song { background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 14px; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+  .song:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .song.disabled { cursor: default; pointer-events: none; }
+  .song.right { border-color: var(--accent); }
+  .song.wrong { border-color: var(--wrong); }
+  .song.dim { opacity: 0.5; }
+  .song .frame { aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background:#000; border: 1px solid var(--line); position: relative; margin-bottom: 10px; }
+  .song .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
+  .song .frame.empty { display: flex; align-items: center; justify-content: center; }
+  .song .frame.empty a { padding: 8px 14px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; font-size: 12px; }
+  .song .who { font-size: 14px; font-weight: 700; line-height: 1.3; }
+  .song .y { color: var(--mute); font-weight: 500; font-size: 12px; margin-left: 4px; }
+  .song .pick { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 8px; }
+  .song.right .pick { color: var(--accent); }
+  .song.wrong .pick { color: var(--wrong); }
+
+  .reveal { margin-top: 18px; background: var(--panel); border: 1px solid var(--accent); border-left-width: 3px; border-radius: 10px; padding: 16px 18px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .label { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+  .reveal .trait { font-weight: 700; font-size: 16px; margin: 0 0 8px; }
+  .reveal .body { color: var(--ink); line-height: 1.5; font-size: 14px; }
+
+  .status { margin-top: 16px; min-height: 22px; color: var(--mute); font-size: 13px; }
+  .status.err { color: #ff5a5a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/">← Music Toys</a>
+    <span>004 · Two Truths and a Lie</span>
+  </div>
+
+  <h1 class="hero">Spot the <em>lie.</em></h1>
+  <p class="lede">Three songs. Two share a hidden trait. One doesn't. Click the lie. Then find out what they had in common.</p>
+
+  <div class="scoreboard">
+    <span class="score">Score <b id="score">0</b></span>
+    <span class="score streak">Streak <b id="streak">0</b></span>
+    <span class="score">Best <b id="best">0</b></span>
+  </div>
+
+  <div class="controls">
+    <div class="diff">
+      <button data-d="easy">Easy</button>
+      <button class="on" data-d="medium">Medium</button>
+      <button data-d="hard">Hard</button>
+    </div>
+    <button id="newRound">New round</button>
+    <button class="ghost" id="reset">Reset score</button>
+  </div>
+
+  <div class="prompt"><div class="q">Find the lie</div><div class="t" id="trait">Two of these share a hidden trait. One doesn't. Listen, then click the lie.</div></div>
+
+  <div class="songs" id="songs"></div>
+
+  <div class="reveal" id="reveal">
+    <div class="label" id="revealLabel"></div>
+    <div class="trait" id="revealTrait"></div>
+    <div class="body" id="revealBody"></div>
+  </div>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+
+let difficulty = "medium";
+let usedRounds = [];
+let score = parseInt(localStorage.getItem("ttl_score") || "0", 10);
+let streak = 0;
+let best = parseInt(localStorage.getItem("ttl_best") || "0", 10);
+let currentRound = null;
+let answered = false;
+
+document.querySelectorAll(".diff button").forEach(b => b.addEventListener("click", () => {
+  difficulty = b.dataset.d;
+  document.querySelectorAll(".diff button").forEach(x => x.classList.toggle("on", x === b));
+}));
+$("#newRound").addEventListener("click", loadRound);
+$("#reset").addEventListener("click", () => {
+  score = 0; streak = 0; best = 0;
+  localStorage.removeItem("ttl_score");
+  localStorage.removeItem("ttl_best");
+  updateScore();
+});
+
+function updateScore() {
+  $("#score").textContent = score;
+  $("#streak").textContent = streak;
+  $("#best").textContent = best;
+}
+updateScore();
+
+async function loadRound() {
+  setStatus("Setting up the round…");
+  $("#newRound").disabled = true;
+  $("#reveal").classList.remove("show");
+  $("#songs").innerHTML = "";
+  $("#trait").textContent = "Two of these share a hidden trait. One doesn't. Listen, then click the lie.";
+  answered = false;
+  try {
+    const res = await fetch("/api/two-truths", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({ difficulty, already_used: usedRounds.slice(-12) })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    currentRound = data.round;
+    usedRounds.push(data.round.songs.map(s => `${s.artist} - ${s.track}`).join(" / "));
+    renderSongs();
+    setStatus("");
+  } catch (e) {
+    setStatus(e.message, true);
+  } finally {
+    $("#newRound").disabled = false;
+  }
+}
+
+function renderSongs() {
+  $("#songs").innerHTML = currentRound.songs.map((s, i) => {
+    const frame = s.videoId
+      ? `<div class="frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(s.videoId)}?rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`
+      : `<div class="frame empty"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(s.fallbackQuery)}" target="_blank" rel="noopener">▶ YouTube</a></div>`;
+    return `<div class="song" data-i="${i}">
+      ${frame}
+      <div class="who">${esc(s.artist)} — ${esc(s.track)} <span class="y">${esc(s.year || "")}</span></div>
+      <div class="pick"></div>
+    </div>`;
+  }).join("");
+  document.querySelectorAll(".song").forEach(el => el.addEventListener("click", () => {
+    if (answered) return;
+    const i = Number(el.dataset.i);
+    answer(i);
+  }));
+}
+
+function answer(i) {
+  answered = true;
+  document.querySelectorAll(".song").forEach((el, idx) => {
+    el.classList.add("disabled");
+    if (idx === currentRound.lie_index) {
+      el.classList.add("right");
+      el.querySelector(".pick").textContent = "The lie";
+    } else if (idx === i) {
+      el.classList.add("wrong");
+      el.querySelector(".pick").textContent = "You picked this";
+    } else {
+      el.classList.add("dim");
+    }
+  });
+
+  const correct = i === currentRound.lie_index;
+  if (correct) {
+    score++; streak++; if (streak > best) best = parseInt(streak, 10);
+    localStorage.setItem("ttl_score", score);
+    localStorage.setItem("ttl_best", best);
+  } else {
+    streak = 0;
+  }
+  updateScore();
+
+  $("#revealLabel").textContent = correct ? "✓ You got it" : "✗ Not quite — here's the trait";
+  $("#revealTrait").textContent = currentRound.trait;
+  $("#revealBody").textContent = currentRound.reveal;
+  $("#reveal").classList.add("show");
+}
+
+function setStatus(msg, err = false) { const s = $("#status"); s.className = "status" + (err ? " err" : ""); s.textContent = msg; }
+
+loadRound();
+</script>
+</body>
+</html>

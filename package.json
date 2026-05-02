@@ -1,0 +1,15 @@
+{
+  "name": "music-toys",
+  "version": "0.1.0",
+  "description": "Five standalone music toys — testing what's fun.",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --env-file-if-exists=.env --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

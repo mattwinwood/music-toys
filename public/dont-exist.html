@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Songs That Don't Exist</title>
+<style>
+  :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#ffce3d; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 24px 96px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+  .top a { color: var(--mute); text-decoration: none; }
+  .top a:hover { color: var(--ink); }
+
+  .hero { font-size: clamp(32px, 6vw, 48px); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
+  .hero em { font-style: italic; color: var(--accent); }
+  .lede { color: var(--mute); margin: 0 0 28px; max-width: 60ch; }
+
+  .ask { display: flex; gap: 10px; }
+  .ask input { flex: 1; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font: inherit; outline: none; }
+  .ask input:focus { border-color: var(--accent); }
+  .ask button { background: var(--accent); color: #1f1808; border: none; border-radius: 12px; padding: 0 24px; font: inherit; font-weight: 700; cursor: pointer; }
+  .ask button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .examples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .ex { font-size: 13px; color: var(--mute); padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+  .ex:hover { border-color: var(--accent); color: var(--ink); }
+
+  .status { margin-top: 16px; min-height: 22px; color: var(--mute); font-size: 14px; }
+  .err { color: #ff5a5a; }
+
+  .player { margin-top: 36px; display: none; }
+  .player.show { display: block; }
+
+  .frame { aspect-ratio: 16/9; width: 100%; border-radius: 14px; overflow: hidden; background:#000; border: 1px solid var(--line); position: relative; }
+  .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
+  .frame.empty { display:flex; align-items:center; justify-content:center; }
+  .frame.empty a { padding: 12px 20px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; }
+
+  .closest-label { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 18px 0 4px; }
+  .who { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+  .who .y { color: var(--mute); font-size: 13px; margin-left: 6px; font-weight: 500; }
+  .why { color: var(--ink); margin: 12px 0 8px; line-height: 1.5; }
+  .closer { color: var(--mute); font-size: 14px; margin: 0 0 16px; font-style: italic; border-left: 2px solid var(--accent); padding-left: 12px; }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  .controls button { background: var(--accent); color: #1f1808; border: none; border-radius: 999px; padding: 10px 22px; font: inherit; font-weight: 700; cursor: pointer; }
+  .controls button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/">← Music Toys</a>
+    <span>005 · Don't Exist</span>
+  </div>
+
+  <h1 class="hero">Describe a song that <em>doesn't exist.</em></h1>
+  <p class="lede">Hypothetical mashups. Genre-crossed counterfactuals. The album an artist never made. We'll find the closest real thing.</p>
+
+  <div class="ask">
+    <input id="input" type="text" placeholder='e.g. "If My Chemical Romance had a folk album"' autofocus />
+    <button id="go">Find it</button>
+  </div>
+
+  <div class="examples">
+    <span class="ex" data-v="If My Chemical Romance had a folk album">MCR folk album</span>
+    <span class="ex" data-v="The lo-fi version of Bohemian Rhapsody">lo-fi Bohemian Rhapsody</span>
+    <span class="ex" data-v="What Drake would sound like in 1968">Drake in 1968</span>
+    <span class="ex" data-v="Bossa nova but it's a black metal song">bossa nova black metal</span>
+    <span class="ex" data-v="A country song produced by Skrillex">country Skrillex</span>
+    <span class="ex" data-v="Weezer if they were Norwegian">Norwegian Weezer</span>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <section class="player" id="player">
+    <div class="frame" id="frame"></div>
+    <div class="closest-label">Closest real thing</div>
+    <div class="who" id="who"></div>
+    <p class="why" id="why"></p>
+    <p class="closer" id="closer"></p>
+    <div class="controls">
+      <button id="another">Try another match →</button>
+      <button class="ghost" id="newvibe">New fantasy</button>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+let history = [];
+
+document.querySelectorAll(".ex").forEach(el => el.addEventListener("click", () => { $("#input").value = el.dataset.v; go(); }));
+$("#input").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+$("#go").addEventListener("click", go);
+$("#another").addEventListener("click", go);
+$("#newvibe").addEventListener("click", () => { history = []; $("#player").classList.remove("show"); $("#input").focus(); $("#input").select(); });
+
+async function go() {
+  const fantasy = $("#input").value.trim();
+  if (fantasy.length < 4) return;
+  setStatus("Hunting…");
+  $("#go").disabled = true;
+  try {
+    const res = await fetch("/api/dont-exist", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ fantasy, already_heard: history }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    render(data.pick);
+    setStatus("");
+  } catch (e) { setStatus(e.message, true); }
+  finally { $("#go").disabled = false; }
+}
+
+function setStatus(msg, err = false) { const s = $("#status"); s.className = "status" + (err ? " err" : ""); s.textContent = msg; }
+
+function render(p) {
+  const tag = `${p.artist} — ${p.track}`;
+  history = [tag, ...history.filter(h => h !== tag)].slice(0, 12);
+  const frame = $("#frame");
+  if (p.videoId) {
+    frame.classList.remove("empty");
+    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(p.videoId)}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+  } else {
+    frame.classList.add("empty");
+    frame.innerHTML = `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a>`;
+  }
+  $("#who").innerHTML = `${esc(p.artist)} — ${esc(p.track)} <span class="y">${esc(p.year || "")}</span>`;
+  $("#why").textContent = p.why || "";
+  $("#closer").textContent = p.closer_if ? `Closer if: ${p.closer_if}` : "";
+  $("#player").classList.add("show");
+  $("#player").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+</script>
+</body>
+</html>

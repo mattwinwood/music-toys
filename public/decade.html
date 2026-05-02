@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Decade Compass</title>
+<style>
+  :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#9d6cff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
+  a { color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 24px 96px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+  .top a { color: var(--mute); text-decoration: none; }
+  .top a:hover { color: var(--ink); }
+
+  .hero { font-size: clamp(32px, 6vw, 48px); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
+  .hero em { color: var(--accent); font-style: italic; }
+  .lede { color: var(--mute); margin: 0 0 22px; max-width: 60ch; }
+
+  .layout { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; align-items: start; }
+  @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } }
+
+  .compass {
+    aspect-ratio: 1; width: 100%; position: relative;
+    background: linear-gradient(135deg, #11111a 0%, #1c1c28 50%, #2a1c2e 100%);
+    border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    cursor: crosshair; touch-action: none; user-select: none;
+  }
+  .compass .grid { position: absolute; inset: 24px; pointer-events: none; }
+  .compass .grid::before, .compass .grid::after { content: ""; position: absolute; background: var(--line); }
+  .compass .grid::before { left: 0; right: 0; top: 50%; height: 1px; }
+  .compass .grid::after { top: 0; bottom: 0; left: 50%; width: 1px; }
+  .axis-label { position: absolute; font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--mute); letter-spacing: 0.1em; text-transform: uppercase; pointer-events: none; }
+  .axis-label.year-low { left: 12px; bottom: 10px; }
+  .axis-label.year-high { right: 12px; bottom: 10px; }
+  .axis-label.energy-high { left: 12px; top: 10px; transform: rotate(-90deg); transform-origin: 0 0; }
+  .axis-label.energy-low { left: 12px; bottom: 10px; transform: rotate(-90deg) translateY(0); transform-origin: 0 0; }
+
+  /* energy labels — vertical text along left edge */
+  .axis-label.energy-high { left: 12px; top: 18px; transform: none; }
+  .axis-label.energy-low { left: 12px; bottom: 28px; transform: none; }
+
+  .puck {
+    position: absolute; width: 28px; height: 28px;
+    border-radius: 50%; background: var(--accent);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 6px rgba(157, 108, 255, 0.18), 0 0 30px rgba(157, 108, 255, 0.5);
+    transition: transform .06s ease;
+    pointer-events: none;
+  }
+  .compass.dragging .puck { transform: translate(-50%, -50%) scale(1.15); }
+  .coord {
+    position: absolute; top: 14px; right: 14px;
+    font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--mute); text-align: right; pointer-events: none;
+  }
+  .coord b { color: var(--ink); font-weight: 600; display: block; font-size: 14px; }
+
+  .panel-side { display: flex; flex-direction: column; gap: 14px; }
+  .frame { aspect-ratio: 16/9; width: 100%; border-radius: 14px; overflow: hidden; background:#000; border: 1px solid var(--line); position: relative; }
+  .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
+  .frame.empty { display:flex; align-items:center; justify-content:center; background: var(--panel); color: var(--mute); font-size: 13px; padding: 18px; text-align: center; }
+  .frame.empty a { padding: 10px 18px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; margin-top: 10px; display: inline-block; }
+
+  .meta { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .meta .who { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+  .meta .who .y { color: var(--mute); font-size: 13px; margin-left: 6px; font-weight: 500; letter-spacing: 0.05em; }
+  .meta .genre { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 6px 0 0; }
+  .meta .why { color: var(--mute); margin: 10px 0 0; font-size: 14px; line-height: 1.5; }
+  .meta.empty { color: var(--mute); font-size: 14px; }
+
+  .status { font-size: 13px; color: var(--mute); min-height: 20px; }
+  .status.err { color: #ff7070; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/">← Music Toys</a>
+    <span>003 · Decade Compass</span>
+  </div>
+
+  <h1 class="hero">Drag the dot. <em>Hear</em> the moment.</h1>
+  <p class="lede">Year on the bottom. Energy on the side. Wherever you drop the puck, a real song from that exact coordinate plays.</p>
+
+  <div class="layout">
+    <div class="compass" id="compass">
+      <div class="grid"></div>
+      <div class="axis-label year-low">1955</div>
+      <div class="axis-label year-high">2026</div>
+      <div class="axis-label energy-high">High energy</div>
+      <div class="axis-label energy-low">Ambient</div>
+      <div class="puck" id="puck" style="left:50%;top:50%"></div>
+      <div class="coord" id="coord"><b id="coordYear">1990</b><span id="coordEnergy">energy 0.50</span></div>
+    </div>
+
+    <div class="panel-side">
+      <div class="frame empty" id="frame">Drop the puck anywhere on the compass.</div>
+      <div class="meta empty" id="meta">Pick lands here.</div>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const compass = document.getElementById("compass");
+const puck = document.getElementById("puck");
+const coordYear = document.getElementById("coordYear");
+const coordEnergy = document.getElementById("coordEnergy");
+const frame = document.getElementById("frame");
+const meta = document.getElementById("meta");
+const status = document.getElementById("status");
+
+const YEAR_MIN = 1955, YEAR_MAX = 2026;
+let history = [];
+let pending = null;
+let cursor = { x: 0.5, y: 0.5 };
+
+function coordsFromXY(x, y) {
+  const year = Math.round(YEAR_MIN + x * (YEAR_MAX - YEAR_MIN));
+  const energy = 1 - y; // y=0 is top = high energy
+  return { year, energy: Math.max(0, Math.min(1, energy)) };
+}
+
+function setPuckPx(clientX, clientY) {
+  const r = compass.getBoundingClientRect();
+  const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+  const y = Math.max(0, Math.min(1, (clientY - r.top) / r.height));
+  cursor = { x, y };
+  puck.style.left = `${x * 100}%`;
+  puck.style.top = `${y * 100}%`;
+  const { year, energy } = coordsFromXY(x, y);
+  coordYear.textContent = year;
+  coordEnergy.textContent = `energy ${energy.toFixed(2)}`;
+  return { year, energy };
+}
+
+let dragging = false;
+let debounceTimer = null;
+
+compass.addEventListener("pointerdown", (e) => {
+  dragging = true;
+  compass.classList.add("dragging");
+  compass.setPointerCapture(e.pointerId);
+  setPuckPx(e.clientX, e.clientY);
+});
+compass.addEventListener("pointermove", (e) => {
+  if (!dragging) return;
+  setPuckPx(e.clientX, e.clientY);
+});
+compass.addEventListener("pointerup", (e) => {
+  if (!dragging) return;
+  dragging = false;
+  compass.classList.remove("dragging");
+  const c = coordsFromXY(cursor.x, cursor.y);
+  fetchPick(c.year, c.energy);
+});
+compass.addEventListener("pointercancel", () => { dragging = false; compass.classList.remove("dragging"); });
+
+async function fetchPick(year, energy) {
+  if (pending) pending.abort();
+  const ctrl = new AbortController();
+  pending = ctrl;
+  status.className = "status";
+  status.textContent = "Looking up…";
+  try {
+    const res = await fetch("/api/compass", {
+      method: "POST", headers: {"content-type":"application/json"},
+      body: JSON.stringify({ year, energy, already_heard: history }),
+      signal: ctrl.signal,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    render(data.pick);
+    status.textContent = "";
+  } catch (e) {
+    if (e.name === "AbortError") return;
+    status.className = "status err";
+    status.textContent = e.message;
+  }
+}
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+
+function render(p) {
+  const tag = `${p.artist} — ${p.track}`;
+  history = [tag, ...history.filter(h => h !== tag)].slice(0, 16);
+  if (p.videoId) {
+    frame.classList.remove("empty");
+    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(p.videoId)}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+  } else {
+    frame.classList.add("empty");
+    frame.innerHTML = `<div>Couldn't embed this one.<br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a></div>`;
+  }
+  meta.classList.remove("empty");
+  meta.innerHTML = `
+    <div class="who">${esc(p.artist)} — ${esc(p.track)} <span class="y">${esc(p.year || "")}</span></div>
+    <div class="genre">${esc(p.genre_hint || "")}</div>
+    <div class="why">${esc(p.why || "")}</div>`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+services:
+  music-toys:
+    build: .
+    image: music-toys:latest
+    container_name: music-toys
+    restart: unless-stopped
+    expose:
+      - "3220"
+    ports:
+      - "3220:3220"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-}
+      - PORT=3220
