@@ -30,9 +30,10 @@
       radial-gradient(80% 60% at 30% 30%, rgba(61,164,255,0.08) 0%, transparent 70%),
       linear-gradient(135deg, #11111a 0%, #1c1c28 50%, #2a1c2e 100%);
     border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
-    cursor: crosshair; touch-action: none; user-select: none;
+    cursor: crosshair; touch-action: pan-y; user-select: none;
     box-shadow: 0 30px 80px -40px rgba(157, 108, 255, 0.4);
   }
+  .compass.dragging { touch-action: none; }
 
   /* Decade tick marks */
   .ticks { position: absolute; inset: 0; pointer-events: none; }
@@ -331,28 +332,65 @@ function setPuckPx(clientX, clientY) {
   return { year, energy };
 }
 
-let dragging = false;
+// Drag-vs-scroll intent detection. On pointerdown we DON'T capture or
+// commit. We wait for the first few pixels of movement to decide:
+// - mostly vertical → release control, let the page scroll
+// - mostly horizontal/diagonal OR clean tap → take control
+const DRAG_THRESHOLD = 8;       // pixels before we decide
+const VERTICAL_RATIO = 1.4;     // dy must exceed dx by this factor to "scroll"
+let pending = null;             // { startX, startY, pointerId, decided, isDrag }
+
 compass.addEventListener("pointerdown", (e) => {
-  dragging = true;
-  compass.classList.add("dragging");
-  puck.classList.remove("idle");
-  compass.classList.remove("show-hint");
-  compass.setPointerCapture(e.pointerId);
-  setPuckPx(e.clientX, e.clientY);
-  scheduleFetch();
+  pending = { startX: e.clientX, startY: e.clientY, pointerId: e.pointerId, decided: false, isDrag: false };
 });
+
 compass.addEventListener("pointermove", (e) => {
-  if (!dragging) return;
-  setPuckPx(e.clientX, e.clientY);
-  scheduleFetch();
+  if (!pending) return;
+  if (!pending.decided) {
+    const dx = Math.abs(e.clientX - pending.startX);
+    const dy = Math.abs(e.clientY - pending.startY);
+    if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    if (dy > dx * VERTICAL_RATIO) {
+      // Predominantly vertical — user is scrolling. Abandon.
+      pending = null;
+      return;
+    }
+    // Committed to drag.
+    pending.decided = true;
+    pending.isDrag = true;
+    compass.classList.add("dragging");
+    puck.classList.remove("idle");
+    compass.classList.remove("show-hint");
+    try { compass.setPointerCapture(e.pointerId); } catch {}
+    setPuckPx(e.clientX, e.clientY);
+    scheduleFetch();
+    e.preventDefault();
+  } else if (pending.isDrag) {
+    setPuckPx(e.clientX, e.clientY);
+    scheduleFetch();
+    e.preventDefault();
+  }
 });
-compass.addEventListener("pointerup", () => {
-  if (!dragging) return;
-  dragging = false;
-  compass.classList.remove("dragging");
-  fetchPick(true);
+
+compass.addEventListener("pointerup", (e) => {
+  if (!pending) return;
+  const dx = Math.abs(e.clientX - pending.startX);
+  const dy = Math.abs(e.clientY - pending.startY);
+  const moved = Math.hypot(dx, dy);
+  if (!pending.decided && moved < DRAG_THRESHOLD) {
+    // Clean tap — set puck to tap location and fetch.
+    puck.classList.remove("idle");
+    compass.classList.remove("show-hint");
+    setPuckPx(e.clientX, e.clientY);
+    fetchPick(true);
+  } else if (pending.isDrag) {
+    compass.classList.remove("dragging");
+    fetchPick(true);
+  }
+  pending = null;
 });
-compass.addEventListener("pointercancel", () => { dragging = false; compass.classList.remove("dragging"); });
+
+compass.addEventListener("pointercancel", () => { pending = null; compass.classList.remove("dragging"); });
 
 function scheduleFetch() {
   if (dragTimer) clearTimeout(dragTimer);
