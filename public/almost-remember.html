@@ -51,6 +51,15 @@
   .alt .frame { aspect-ratio: 16/9; }
 
   .help { margin-top: 18px; padding: 12px 16px; background: var(--panel); border-left: 3px solid var(--accent); border-radius: 8px; font-size: 14px; color: var(--mute); }
+
+  /* Loading */
+  .loader { display: none; margin-top: 24px; padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; text-align: center; flex-direction: column; align-items: center; gap: 14px; }
+  .loader.show { display: flex; }
+  .vinyl { position: relative; width: 80px; height: 80px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #1a1a22 0%, #1a1a22 22%, var(--accent) 23%, var(--accent) 26%, #0e0e14 27%, #1a1a22 32%, #0e0e14 33%, #1a1a22 38%, #0e0e14 39%, #1a1a22 44%, #0e0e14 45%, #1a1a22 50%, #0e0e14 51%, #1a1a22 56%, #0e0e14 57%, #1a1a22 62%, #0e0e14 63%, #1a1a22 100%); animation: spinVinyl 1.6s linear infinite; box-shadow: 0 0 30px rgba(61, 164, 255, 0.25); }
+  .vinyl::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); transform: translate(-50%, -50%); box-shadow: inset 0 0 0 2px #0a0a0c; }
+  @keyframes spinVinyl { to { transform: rotate(360deg); } }
+  .load-msg { font-size: 14px; color: var(--mute); transition: opacity .2s ease; min-height: 20px; font-style: italic; }
+  .load-msg.fade { opacity: 0; }
 </style>
 </head>
 <body>
@@ -70,6 +79,11 @@
     <button class="ghost" id="clear">Clear</button>
   </div>
   <div class="status" id="status"></div>
+
+  <div class="loader" id="loader">
+    <div class="vinyl"></div>
+    <div class="load-msg" id="loadMsg">Opening the case file…</div>
+  </div>
 
   <section class="result" id="result">
     <div class="best">
@@ -97,18 +111,36 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&
 $("#clear").addEventListener("click", () => { $("#desc").value = ""; $("#result").classList.remove("show"); $("#status").textContent = ""; });
 $("#go").addEventListener("click", go);
 
+const LOAD_MSGS = ["Opening the case file…","Cross-referencing the timeline…","Phoning a witness…","Squinting at the liner notes…","Following the lead…","The detective's thinking…","Almost got it…","Triangulating the clues…"];
+let loadInterval = null;
+function startLoading() {
+  $("#loader").classList.add("show");
+  $("#result").classList.remove("show");
+  let i = 0;
+  $("#loadMsg").textContent = LOAD_MSGS[i];
+  if (loadInterval) clearInterval(loadInterval);
+  loadInterval = setInterval(() => {
+    const el = $("#loadMsg");
+    el.classList.add("fade");
+    setTimeout(() => { i = (i + 1) % LOAD_MSGS.length; el.textContent = LOAD_MSGS[i]; el.classList.remove("fade"); }, 200);
+  }, 900);
+}
+function stopLoading() { $("#loader").classList.remove("show"); if (loadInterval) { clearInterval(loadInterval); loadInterval = null; } }
+
 async function go() {
   const description = $("#desc").value.trim();
   if (description.length < 8) { setStatus("A few more details, even if vague.", true); return; }
-  setStatus("Sleuthing…");
+  setStatus("");
+  startLoading();
   $("#go").disabled = true;
   try {
     const res = await fetch("/api/remember", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ description }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
+    stopLoading();
     render(data.result);
     setStatus("");
-  } catch (e) { setStatus(e.message, true); }
+  } catch (e) { stopLoading(); setStatus(e.message, true); }
   finally { $("#go").disabled = false; }
 }
 

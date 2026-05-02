@@ -9,7 +9,9 @@ import { dirname } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, "public");
 const PORT = Number(process.env.PORT || 3220);
+// Default to Sonnet for reasoning-heavy toys; fast toys override to Haiku.
 const MODEL = "claude-sonnet-4-6";
+const FAST_MODEL = "claude-haiku-4-5-20251001";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -23,7 +25,7 @@ const MIME = {
 
 // ---------- Claude helper ----------
 
-async function callClaude(system, user, { maxTokens = 800 } = {}) {
+async function callClaude(system, user, { maxTokens = 800, model = MODEL } = {}) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     const err = new Error("ANTHROPIC_API_KEY is not set on the server.");
@@ -38,7 +40,7 @@ async function callClaude(system, user, { maxTokens = 800 } = {}) {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       max_tokens: maxTokens,
       system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: user }],
@@ -114,7 +116,7 @@ async function handleSoundOf(req, res) {
       return sendJson(res, 400, { error: "Type something first." });
     }
     const userMsg = `Input: ${input}\n\nAlready heard:\n${(already_heard || []).map((x) => `- ${x}`).join("\n") || "(none)"}`;
-    const pick = await callClaude(SOUND_OF_SYSTEM, userMsg, { maxTokens: 400 });
+    const pick = await callClaude(SOUND_OF_SYSTEM, userMsg, { maxTokens: 400, model: FAST_MODEL });
     const [withYt] = await attachVideoIds([pick]);
     sendJson(res, 200, { pick: withYt });
   } catch (e) {
@@ -190,7 +192,7 @@ async function handleCompass(req, res) {
       return sendJson(res, 400, { error: "energy must be 0..1" });
     }
     const userMsg = `Year: ${year}\nEnergy: ${energy.toFixed(2)} (0=ambient, 1=peak)\n\nAlready heard:\n${(already_heard || []).map((x) => `- ${x}`).join("\n") || "(none)"}`;
-    const pick = await callClaude(COMPASS_SYSTEM, userMsg, { maxTokens: 400 });
+    const pick = await callClaude(COMPASS_SYSTEM, userMsg, { maxTokens: 400, model: FAST_MODEL });
     const [withYt] = await attachVideoIds([pick]);
     sendJson(res, 200, { pick: withYt });
   } catch (e) {
@@ -261,7 +263,7 @@ async function handleDontExist(req, res) {
       return sendJson(res, 400, { error: "Describe the song that doesn't exist." });
     }
     const userMsg = `Fantasy song: ${fantasy}\n\nAlready heard:\n${(already_heard || []).map((x) => `- ${x}`).join("\n") || "(none)"}`;
-    const pick = await callClaude(DONTEXIST_SYSTEM, userMsg, { maxTokens: 500 });
+    const pick = await callClaude(DONTEXIST_SYSTEM, userMsg, { maxTokens: 500, model: FAST_MODEL });
     const [withYt] = await attachVideoIds([pick]);
     sendJson(res, 200, { pick: withYt });
   } catch (e) {

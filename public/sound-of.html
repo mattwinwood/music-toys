@@ -37,6 +37,13 @@
   .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
   .frame.empty { display:flex; align-items:center; justify-content:center; }
   .frame.empty a { padding: 12px 20px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; }
+  .skeleton { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; text-align: center; color: var(--mute); }
+  .vinyl { position: relative; width: 80px; height: 80px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #1a1a22 0%, #1a1a22 22%, var(--accent) 23%, var(--accent) 26%, #0e0e14 27%, #1a1a22 32%, #0e0e14 33%, #1a1a22 38%, #0e0e14 39%, #1a1a22 44%, #0e0e14 45%, #1a1a22 50%, #0e0e14 51%, #1a1a22 56%, #0e0e14 57%, #1a1a22 62%, #0e0e14 63%, #1a1a22 100%); animation: spinVinyl 1.6s linear infinite; box-shadow: 0 0 30px rgba(255, 106, 61, 0.25); }
+  .vinyl::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); transform: translate(-50%, -50%); box-shadow: inset 0 0 0 2px #0a0a0c; }
+  @keyframes spinVinyl { to { transform: rotate(360deg); } }
+  .load-input { font-size: 14px; font-weight: 600; color: var(--ink); max-width: 80%; line-height: 1.3; }
+  .load-msg { font-size: 13px; color: var(--mute); transition: opacity .2s ease; min-height: 18px; }
+  .load-msg.fade { opacity: 0; }
 
   .now { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 4px; gap: 12px; flex-wrap: wrap; }
   .now .who { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
@@ -97,10 +104,31 @@ $("#go").addEventListener("click", go);
 $("#another").addEventListener("click", go);
 $("#newvibe").addEventListener("click", () => { history = []; $("#player").classList.remove("show"); $("#input").focus(); $("#input").select(); });
 
+const LOAD_MSGS = ["Listening for it…","Riffling through the bins…","Asking around…","Cueing it up…","Calling a friend with good taste…","Sniffing the vibe…","Putting it on…","Pulling the right one…"];
+let loadInterval = null;
+function startLoading(input) {
+  $("#player").classList.add("show");
+  const frame = $("#frame");
+  frame.classList.remove("empty");
+  let i = Math.floor(Math.random() * LOAD_MSGS.length);
+  frame.innerHTML = `<div class="skeleton"><div class="vinyl"></div><div class="load-input">"${esc(input)}"</div><div class="load-msg" id="loadMsg">${LOAD_MSGS[i]}</div></div>`;
+  $("#who").textContent = "";
+  $("#why").textContent = "";
+  if (loadInterval) clearInterval(loadInterval);
+  loadInterval = setInterval(() => {
+    const el = document.getElementById("loadMsg");
+    if (!el) { clearInterval(loadInterval); return; }
+    el.classList.add("fade");
+    setTimeout(() => { i = (i + 1) % LOAD_MSGS.length; el.textContent = LOAD_MSGS[i]; el.classList.remove("fade"); }, 200);
+  }, 800);
+}
+function stopLoading() { if (loadInterval) { clearInterval(loadInterval); loadInterval = null; } }
+
 async function go() {
   const input = $("#input").value.trim();
   if (input.length < 1) return;
-  setStatus("Picking…");
+  setStatus("");
+  startLoading(input);
   $("#go").disabled = true;
   $("#another").disabled = true;
   try {
@@ -110,9 +138,10 @@ async function go() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
+    stopLoading();
     render(data.pick);
     setStatus("");
-  } catch (e) { setStatus(e.message, true); }
+  } catch (e) { stopLoading(); setStatus(e.message, true); $("#frame").innerHTML = `<div class="skeleton">${esc(e.message)}</div>`; }
   finally { $("#go").disabled = false; $("#another").disabled = false; }
 }
 

@@ -61,6 +61,15 @@
 
   .status { margin-top: 16px; min-height: 22px; color: var(--mute); font-size: 13px; }
   .status.err { color: #ff5a5a; }
+
+  /* Loading */
+  .loader { display: none; margin: 18px 0; padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; text-align: center; flex-direction: column; align-items: center; gap: 14px; }
+  .loader.show { display: flex; }
+  .vinyl { position: relative; width: 80px; height: 80px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #1a1a22 0%, #1a1a22 22%, var(--accent) 23%, var(--accent) 26%, #0e0e14 27%, #1a1a22 32%, #0e0e14 33%, #1a1a22 38%, #0e0e14 39%, #1a1a22 44%, #0e0e14 45%, #1a1a22 50%, #0e0e14 51%, #1a1a22 56%, #0e0e14 57%, #1a1a22 62%, #0e0e14 63%, #1a1a22 100%); animation: spinVinyl 1.6s linear infinite; box-shadow: 0 0 30px rgba(90, 209, 122, 0.25); }
+  .vinyl::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); transform: translate(-50%, -50%); box-shadow: inset 0 0 0 2px #0a0a0c; }
+  @keyframes spinVinyl { to { transform: rotate(360deg); } }
+  .load-msg { font-size: 14px; color: var(--mute); transition: opacity .2s ease; min-height: 20px; font-style: italic; }
+  .load-msg.fade { opacity: 0; }
 </style>
 </head>
 <body>
@@ -90,6 +99,11 @@
   </div>
 
   <div class="prompt"><div class="q">Find the lie</div><div class="t" id="trait">Two of these share a hidden trait. One doesn't. Listen, then click the lie.</div></div>
+
+  <div class="loader" id="loader">
+    <div class="vinyl"></div>
+    <div class="load-msg" id="loadMsg">Shuffling the deck…</div>
+  </div>
 
   <div class="songs" id="songs"></div>
 
@@ -134,11 +148,27 @@ function updateScore() {
 }
 updateScore();
 
+const LOAD_MSGS = ["Shuffling the deck…","Picking three songs…","Hiding the trait…","Choosing the lie…","Setting the trap…","Polishing the truth…","Almost ready…"];
+let loadInterval = null;
+function startLoading() {
+  $("#loader").classList.add("show");
+  $("#songs").innerHTML = "";
+  let i = 0;
+  $("#loadMsg").textContent = LOAD_MSGS[i];
+  if (loadInterval) clearInterval(loadInterval);
+  loadInterval = setInterval(() => {
+    const el = $("#loadMsg");
+    el.classList.add("fade");
+    setTimeout(() => { i = (i + 1) % LOAD_MSGS.length; el.textContent = LOAD_MSGS[i]; el.classList.remove("fade"); }, 200);
+  }, 900);
+}
+function stopLoading() { $("#loader").classList.remove("show"); if (loadInterval) { clearInterval(loadInterval); loadInterval = null; } }
+
 async function loadRound() {
-  setStatus("Setting up the round…");
+  setStatus("");
+  startLoading();
   $("#newRound").disabled = true;
   $("#reveal").classList.remove("show");
-  $("#songs").innerHTML = "";
   $("#trait").textContent = "Two of these share a hidden trait. One doesn't. Listen, then click the lie.";
   answered = false;
   try {
@@ -150,9 +180,11 @@ async function loadRound() {
     if (!res.ok) throw new Error(data.error || "Request failed");
     currentRound = data.round;
     usedRounds.push(data.round.songs.map(s => `${s.artist} - ${s.track}`).join(" / "));
+    stopLoading();
     renderSongs();
     setStatus("");
   } catch (e) {
+    stopLoading();
     setStatus(e.message, true);
   } finally {
     $("#newRound").disabled = false;

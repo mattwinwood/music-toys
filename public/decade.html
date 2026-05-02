@@ -9,66 +9,180 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
   a { color: inherit; }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 24px 96px; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 32px 24px 96px; }
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
   .top a { color: var(--mute); text-decoration: none; }
   .top a:hover { color: var(--ink); }
 
-  .hero { font-size: clamp(32px, 6vw, 48px); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
+  .hero { font-size: clamp(32px, 5vw, 44px); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
   .hero em { color: var(--accent); font-style: italic; }
-  .lede { color: var(--mute); margin: 0 0 22px; max-width: 60ch; }
+  .lede { color: var(--mute); margin: 0 0 26px; max-width: 60ch; font-size: 15px; }
 
-  .layout { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; align-items: start; }
-  @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } }
+  .layout { display: grid; gap: 22px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
 
+  /* ---------- Compass ---------- */
+  .compass-wrap { position: sticky; top: 24px; }
   .compass {
     aspect-ratio: 1; width: 100%; position: relative;
-    background: linear-gradient(135deg, #11111a 0%, #1c1c28 50%, #2a1c2e 100%);
-    border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    background:
+      radial-gradient(120% 80% at 50% 100%, rgba(157,108,255,0.12) 0%, transparent 60%),
+      radial-gradient(80% 60% at 30% 30%, rgba(61,164,255,0.08) 0%, transparent 70%),
+      linear-gradient(135deg, #11111a 0%, #1c1c28 50%, #2a1c2e 100%);
+    border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
     cursor: crosshair; touch-action: none; user-select: none;
+    box-shadow: 0 30px 80px -40px rgba(157, 108, 255, 0.4);
   }
-  .compass .grid { position: absolute; inset: 24px; pointer-events: none; }
-  .compass .grid::before, .compass .grid::after { content: ""; position: absolute; background: var(--line); }
-  .compass .grid::before { left: 0; right: 0; top: 50%; height: 1px; }
-  .compass .grid::after { top: 0; bottom: 0; left: 50%; width: 1px; }
-  .axis-label { position: absolute; font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--mute); letter-spacing: 0.1em; text-transform: uppercase; pointer-events: none; }
-  .axis-label.year-low { left: 12px; bottom: 10px; }
-  .axis-label.year-high { right: 12px; bottom: 10px; }
-  .axis-label.energy-high { left: 12px; top: 10px; transform: rotate(-90deg); transform-origin: 0 0; }
-  .axis-label.energy-low { left: 12px; bottom: 10px; transform: rotate(-90deg) translateY(0); transform-origin: 0 0; }
 
-  /* energy labels — vertical text along left edge */
-  .axis-label.energy-high { left: 12px; top: 18px; transform: none; }
-  .axis-label.energy-low { left: 12px; bottom: 28px; transform: none; }
-
-  .puck {
-    position: absolute; width: 28px; height: 28px;
-    border-radius: 50%; background: var(--accent);
-    transform: translate(-50%, -50%);
-    box-shadow: 0 0 0 6px rgba(157, 108, 255, 0.18), 0 0 30px rgba(157, 108, 255, 0.5);
-    transition: transform .06s ease;
-    pointer-events: none;
+  /* Decade tick marks */
+  .ticks { position: absolute; inset: 0; pointer-events: none; }
+  .tick-x {
+    position: absolute; bottom: 0; top: 0; width: 1px;
+    background: rgba(255,255,255,0.04);
   }
-  .compass.dragging .puck { transform: translate(-50%, -50%) scale(1.15); }
+  .tick-x.major { background: rgba(255,255,255,0.08); }
+  .tick-x .label {
+    position: absolute; bottom: 8px; transform: translateX(-50%);
+    font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--mute); letter-spacing: 0.05em;
+  }
+  .tick-y {
+    position: absolute; left: 0; right: 0; height: 1px;
+    background: rgba(255,255,255,0.04);
+  }
+  .tick-y.major { background: rgba(255,255,255,0.08); }
+
+  /* Genre hint zones — very faint */
+  .zones { position: absolute; inset: 0; pointer-events: none; opacity: 0.55; }
+  .zone { position: absolute; font: 11px/1 ui-sans-serif; color: var(--mute); letter-spacing: 0.08em; text-transform: uppercase; transform: translate(-50%, -50%); white-space: nowrap; }
+
+  /* Axis labels */
+  .axis-label {
+    position: absolute; font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--mute); letter-spacing: 0.18em; text-transform: uppercase; pointer-events: none;
+    background: rgba(10,10,12,0.7); padding: 4px 8px; border-radius: 4px;
+  }
+  .axis-label.energy-high { left: 12px; top: 12px; }
+  .axis-label.energy-low { left: 12px; bottom: 26px; }
+  .axis-label.energy-mid { left: 12px; top: 50%; transform: translateY(-50%); opacity: 0.6; }
+
+  /* Live coord readout */
   .coord {
-    position: absolute; top: 14px; right: 14px;
+    position: absolute; top: 12px; right: 12px;
     font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
     color: var(--mute); text-align: right; pointer-events: none;
+    background: rgba(10,10,12,0.7); padding: 8px 12px; border-radius: 6px;
   }
-  .coord b { color: var(--ink); font-weight: 600; display: block; font-size: 14px; }
+  .coord b { color: var(--ink); font-weight: 700; display: block; font-size: 18px; letter-spacing: -0.01em; }
 
-  .panel-side { display: flex; flex-direction: column; gap: 14px; }
-  .frame { aspect-ratio: 16/9; width: 100%; border-radius: 14px; overflow: hidden; background:#000; border: 1px solid var(--line); position: relative; }
+  /* Ghost trail */
+  .trail-dot {
+    position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); transform: translate(-50%, -50%);
+    pointer-events: none; transition: opacity .6s ease;
+    box-shadow: 0 0 8px rgba(157, 108, 255, 0.5);
+  }
+
+  /* The active puck */
+  .puck {
+    position: absolute; width: 32px; height: 32px;
+    border-radius: 50%; background: var(--accent);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 8px rgba(157, 108, 255, 0.18), 0 0 40px rgba(157, 108, 255, 0.6);
+    transition: transform .08s ease;
+    pointer-events: none; z-index: 5;
+  }
+  .compass.dragging .puck { transform: translate(-50%, -50%) scale(1.15); }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 8px rgba(157, 108, 255, 0.18), 0 0 40px rgba(157, 108, 255, 0.5); }
+    50%      { box-shadow: 0 0 0 14px rgba(157, 108, 255, 0.06), 0 0 60px rgba(157, 108, 255, 0.7); }
+  }
+  .puck.idle { animation: pulse 2.4s ease-in-out infinite; }
+
+  /* Hint arrow that appears on first load */
+  .first-hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(40px, -50%);
+    color: var(--mute); font-size: 12px; letter-spacing: 0.04em;
+    background: rgba(10,10,12,0.85); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 12px; pointer-events: none;
+    opacity: 0; transition: opacity .4s ease;
+    white-space: nowrap;
+  }
+  .compass.show-hint .first-hint { opacity: 1; }
+
+  /* ---------- Right panel ---------- */
+  .panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .frame {
+    aspect-ratio: 16/9; width: 100%; border-radius: 14px; overflow: hidden;
+    background: linear-gradient(135deg, #0e0e14 0%, #181821 100%);
+    border: 1px solid var(--line); position: relative;
+  }
   .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
-  .frame.empty { display:flex; align-items:center; justify-content:center; background: var(--panel); color: var(--mute); font-size: 13px; padding: 18px; text-align: center; }
-  .frame.empty a { padding: 10px 18px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; margin-top: 10px; display: inline-block; }
+  .frame .skeleton {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--mute); font-size: 13px; padding: 24px; text-align: center;
+    flex-direction: column; gap: 14px;
+  }
+  .frame.empty .skeleton a { padding: 10px 18px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; }
 
-  .meta { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
-  .meta .who { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+  /* Fun loading: spinning vinyl + ticker copy */
+  .vinyl {
+    position: relative; width: 88px; height: 88px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%,
+      #1a1a22 0%, #1a1a22 22%,
+      var(--accent) 23%, var(--accent) 26%,
+      #0e0e14 27%, #1a1a22 32%,
+      #0e0e14 33%, #1a1a22 38%,
+      #0e0e14 39%, #1a1a22 44%,
+      #0e0e14 45%, #1a1a22 50%,
+      #0e0e14 51%, #1a1a22 56%,
+      #0e0e14 57%, #1a1a22 62%,
+      #0e0e14 63%, #1a1a22 68%,
+      #0e0e14 69%, #1a1a22 100%);
+    box-shadow: 0 0 30px rgba(157, 108, 255, 0.25);
+    animation: spinVinyl 1.6s linear infinite;
+  }
+  .vinyl::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent);
+    transform: translate(-50%, -50%);
+    box-shadow: inset 0 0 0 2px #0a0a0c;
+  }
+  @keyframes spinVinyl { to { transform: rotate(360deg); } }
+
+  .load-coord {
+    font: 18px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--ink); font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .load-coord .e { color: var(--mute); font-size: 13px; font-weight: 500; margin-left: 8px; }
+
+  .load-msg {
+    color: var(--mute); font-size: 13px; min-height: 18px;
+    transition: opacity .2s ease;
+  }
+  .load-msg.fade { opacity: 0; }
+
+  .meta { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-height: 90px; }
+  .meta .who { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
   .meta .who .y { color: var(--mute); font-size: 13px; margin-left: 6px; font-weight: 500; letter-spacing: 0.05em; }
-  .meta .genre { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 6px 0 0; }
-  .meta .why { color: var(--mute); margin: 10px 0 0; font-size: 14px; line-height: 1.5; }
-  .meta.empty { color: var(--mute); font-size: 14px; }
+  .meta .genre { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 8px 0 0; }
+  .meta .why { color: var(--ink); margin: 12px 0 0; font-size: 14px; line-height: 1.5; }
+  .meta.empty { color: var(--mute); font-size: 14px; display: flex; align-items: center; min-height: 90px; }
+
+  /* History strip */
+  .history-label { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mute); margin: 6px 0 6px; }
+  .history-list { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+  .history-item {
+    font-size: 12px; padding: 6px 10px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; color: var(--ink); display: flex; gap: 10px; align-items: baseline;
+    cursor: pointer; transition: border-color .12s ease;
+  }
+  .history-item:hover { border-color: var(--accent); }
+  .history-item .h-coord { font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--accent); width: 60px; flex: 0 0 auto; }
+  .history-item .h-track { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .status { font-size: 13px; color: var(--mute); min-height: 20px; }
   .status.err { color: #ff7070; }
@@ -82,22 +196,30 @@
   </div>
 
   <h1 class="hero">Drag the dot. <em>Hear</em> the moment.</h1>
-  <p class="lede">Year on the bottom. Energy on the side. Wherever you drop the puck, a real song from that exact coordinate plays.</p>
+  <p class="lede">Year on the bottom. Energy on the side. Drop the puck anywhere — a real song from that exact coordinate plays. Drag around to wander through music history.</p>
 
   <div class="layout">
-    <div class="compass" id="compass">
-      <div class="grid"></div>
-      <div class="axis-label year-low">1955</div>
-      <div class="axis-label year-high">2026</div>
-      <div class="axis-label energy-high">High energy</div>
-      <div class="axis-label energy-low">Ambient</div>
-      <div class="puck" id="puck" style="left:50%;top:50%"></div>
-      <div class="coord" id="coord"><b id="coordYear">1990</b><span id="coordEnergy">energy 0.50</span></div>
+    <div class="compass-wrap">
+      <div class="compass" id="compass">
+        <div class="ticks" id="ticks"></div>
+        <div class="zones" id="zones"></div>
+        <div class="axis-label energy-high">Peak / loud</div>
+        <div class="axis-label energy-low">Sparse / quiet</div>
+        <div class="coord" id="coord"><b id="coordYear">—</b><span id="coordEnergy">—</span></div>
+        <div class="puck idle" id="puck" style="left:50%;top:50%"></div>
+        <div class="first-hint" id="firstHint">drag me anywhere</div>
+      </div>
     </div>
 
-    <div class="panel-side">
-      <div class="frame empty" id="frame">Drop the puck anywhere on the compass.</div>
-      <div class="meta empty" id="meta">Pick lands here.</div>
+    <div class="panel">
+      <div class="frame" id="frame">
+        <div class="skeleton"><div class="spinner"></div><div>Picking your first track…</div></div>
+      </div>
+      <div class="meta empty" id="meta">Hold tight — the first pick is loading.</div>
+      <div>
+        <div class="history-label">Already heard</div>
+        <div class="history-list" id="historyList"></div>
+      </div>
       <div class="status" id="status"></div>
     </div>
   </div>
@@ -106,21 +228,70 @@
 <script>
 const compass = document.getElementById("compass");
 const puck = document.getElementById("puck");
+const ticksEl = document.getElementById("ticks");
+const zonesEl = document.getElementById("zones");
 const coordYear = document.getElementById("coordYear");
 const coordEnergy = document.getElementById("coordEnergy");
 const frame = document.getElementById("frame");
 const meta = document.getElementById("meta");
+const historyList = document.getElementById("historyList");
 const status = document.getElementById("status");
+const firstHint = document.getElementById("firstHint");
 
 const YEAR_MIN = 1955, YEAR_MAX = 2026;
-let history = [];
+let history = []; // [{tag, x, y, year, energy}]
 let pending = null;
 let cursor = { x: 0.5, y: 0.5 };
+let dragTimer = null;
+let lastPickAt = 0;
+
+// Build decade ticks
+function buildTicks() {
+  const range = YEAR_MAX - YEAR_MIN;
+  for (let yr = 1960; yr <= 2020; yr += 10) {
+    const x = (yr - YEAR_MIN) / range;
+    const major = yr % 20 === 0;
+    ticksEl.insertAdjacentHTML("beforeend",
+      `<div class="tick-x${major ? " major" : ""}" style="left:${x * 100}%">${
+        major ? `<div class="label">${yr}</div>` : ""
+      }</div>`);
+  }
+  // Y-axis ticks every 0.25
+  for (let v = 0.25; v < 1; v += 0.25) {
+    const major = Math.abs(v - 0.5) < 0.001;
+    ticksEl.insertAdjacentHTML("beforeend",
+      `<div class="tick-y${major ? " major" : ""}" style="top:${(1 - v) * 100}%"></div>`);
+  }
+}
+
+// Genre hint zones (positioned by year, energy)
+function buildZones() {
+  const zones = [
+    { year: 1968, energy: 0.78, label: "Psych / Soul" },
+    { year: 1976, energy: 0.85, label: "Punk / Disco" },
+    { year: 1984, energy: 0.88, label: "Synth-pop" },
+    { year: 1995, energy: 0.92, label: "Grunge / Hip-hop" },
+    { year: 2007, energy: 0.85, label: "Indie / Electro" },
+    { year: 2018, energy: 0.78, label: "Trap / Hyperpop" },
+    { year: 1972, energy: 0.25, label: "Folk" },
+    { year: 1988, energy: 0.18, label: "Ambient" },
+    { year: 2002, energy: 0.22, label: "Post-rock" },
+    { year: 2020, energy: 0.32, label: "Bedroom" },
+  ];
+  for (const z of zones) {
+    const x = (z.year - YEAR_MIN) / (YEAR_MAX - YEAR_MIN);
+    zonesEl.insertAdjacentHTML("beforeend",
+      `<div class="zone" style="left:${x * 100}%;top:${(1 - z.energy) * 100}%">${z.label}</div>`);
+  }
+}
+
+buildTicks();
+buildZones();
 
 function coordsFromXY(x, y) {
   const year = Math.round(YEAR_MIN + x * (YEAR_MAX - YEAR_MIN));
-  const energy = 1 - y; // y=0 is top = high energy
-  return { year, energy: Math.max(0, Math.min(1, energy)) };
+  const energy = Math.max(0, Math.min(1, 1 - y));
+  return { year, energy };
 }
 
 function setPuckPx(clientX, clientY) {
@@ -137,68 +308,188 @@ function setPuckPx(clientX, clientY) {
 }
 
 let dragging = false;
-let debounceTimer = null;
-
 compass.addEventListener("pointerdown", (e) => {
   dragging = true;
   compass.classList.add("dragging");
+  puck.classList.remove("idle");
+  compass.classList.remove("show-hint");
   compass.setPointerCapture(e.pointerId);
   setPuckPx(e.clientX, e.clientY);
+  scheduleFetch();
 });
 compass.addEventListener("pointermove", (e) => {
   if (!dragging) return;
   setPuckPx(e.clientX, e.clientY);
+  scheduleFetch();
 });
-compass.addEventListener("pointerup", (e) => {
+compass.addEventListener("pointerup", () => {
   if (!dragging) return;
   dragging = false;
   compass.classList.remove("dragging");
-  const c = coordsFromXY(cursor.x, cursor.y);
-  fetchPick(c.year, c.energy);
+  fetchPick(true);
 });
 compass.addEventListener("pointercancel", () => { dragging = false; compass.classList.remove("dragging"); });
 
-async function fetchPick(year, energy) {
+function scheduleFetch() {
+  if (dragTimer) clearTimeout(dragTimer);
+  dragTimer = setTimeout(() => fetchPick(false), 500);
+}
+
+const LOAD_MESSAGES = [
+  "Crate-digging…",
+  "Wiping dust off the sleeve…",
+  "Cueing it up…",
+  "Asking the DJ…",
+  "Pulling the record…",
+  "Phoning a friend who was there…",
+  "Listening for the right one…",
+  "Checking the B-side…",
+  "Reading the liner notes…",
+  "Triangulating the vibe…",
+];
+let loadInterval = null;
+
+function startLoadingState(year, energy) {
+  if (frame.querySelector("iframe")) return; // don't replace a playing iframe with a spinner; just background-fetch
+  frame.classList.remove("empty");
+  let i = Math.floor(Math.random() * LOAD_MESSAGES.length);
+  frame.innerHTML = `
+    <div class="skeleton">
+      <div class="vinyl"></div>
+      <div class="load-coord">${year}<span class="e">energy ${energy.toFixed(2)}</span></div>
+      <div class="load-msg" id="loadMsg">${LOAD_MESSAGES[i]}</div>
+    </div>`;
+  if (loadInterval) clearInterval(loadInterval);
+  loadInterval = setInterval(() => {
+    const el = document.getElementById("loadMsg");
+    if (!el) { clearInterval(loadInterval); return; }
+    el.classList.add("fade");
+    setTimeout(() => {
+      i = (i + 1) % LOAD_MESSAGES.length;
+      el.textContent = LOAD_MESSAGES[i];
+      el.classList.remove("fade");
+    }, 200);
+  }, 800);
+}
+
+function stopLoadingState() {
+  if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
+}
+
+async function fetchPick(immediate = false) {
+  if (dragTimer) { clearTimeout(dragTimer); dragTimer = null; }
   if (pending) pending.abort();
   const ctrl = new AbortController();
   pending = ctrl;
+  const { year, energy } = coordsFromXY(cursor.x, cursor.y);
   status.className = "status";
-  status.textContent = "Looking up…";
+  status.textContent = "";
+  startLoadingState(year, energy);
   try {
     const res = await fetch("/api/compass", {
       method: "POST", headers: {"content-type":"application/json"},
-      body: JSON.stringify({ year, energy, already_heard: history }),
+      body: JSON.stringify({ year, energy, already_heard: history.map(h => h.tag) }),
       signal: ctrl.signal,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
-    render(data.pick);
+    stopLoadingState();
+    render(data.pick, { x: cursor.x, y: cursor.y, year, energy });
     status.textContent = "";
+    lastPickAt = Date.now();
+    // Re-enable pulse if user is idle for a bit
+    setTimeout(() => {
+      if (Date.now() - lastPickAt > 4000 && !dragging) puck.classList.add("idle");
+    }, 4500);
   } catch (e) {
     if (e.name === "AbortError") return;
+    stopLoadingState();
     status.className = "status err";
     status.textContent = e.message;
+    frame.innerHTML = `<div class="skeleton">${esc(e.message)}</div>`;
+    if (history.length === 0) {
+      meta.classList.add("empty");
+      meta.textContent = "Couldn't pick — drop the puck somewhere else and try again.";
+    }
   }
 }
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 
-function render(p) {
+function render(p, where) {
   const tag = `${p.artist} — ${p.track}`;
-  history = [tag, ...history.filter(h => h !== tag)].slice(0, 16);
+  // Drop a trail dot at the previous pick's location (not the current one, since the puck is there)
+  if (history.length > 0) {
+    const prev = history[0];
+    const dot = document.createElement("div");
+    dot.className = "trail-dot";
+    dot.style.left = `${prev.x * 100}%`;
+    dot.style.top = `${prev.y * 100}%`;
+    dot.style.opacity = "0.5";
+    compass.appendChild(dot);
+    // Fade existing trail dots
+    [...compass.querySelectorAll(".trail-dot")].slice(0, -8).forEach(d => d.remove());
+    [...compass.querySelectorAll(".trail-dot")].forEach((d, i, arr) => {
+      d.style.opacity = `${0.15 + (i / arr.length) * 0.45}`;
+    });
+  }
+  history = [{ tag, ...where }, ...history.filter(h => h.tag !== tag)].slice(0, 16);
+
   if (p.videoId) {
     frame.classList.remove("empty");
     frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(p.videoId)}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
   } else {
     frame.classList.add("empty");
-    frame.innerHTML = `<div>Couldn't embed this one.<br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a></div>`;
+    frame.innerHTML = `<div class="skeleton">Couldn't embed in-page<br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a></div>`;
   }
+
   meta.classList.remove("empty");
   meta.innerHTML = `
     <div class="who">${esc(p.artist)} — ${esc(p.track)} <span class="y">${esc(p.year || "")}</span></div>
     <div class="genre">${esc(p.genre_hint || "")}</div>
     <div class="why">${esc(p.why || "")}</div>`;
+
+  renderHistory();
 }
+
+function renderHistory() {
+  historyList.innerHTML = history.map(h =>
+    `<div class="history-item" data-x="${h.x}" data-y="${h.y}">
+      <span class="h-coord">${h.year} · ${h.energy.toFixed(2)}</span>
+      <span class="h-track">${esc(h.tag)}</span>
+    </div>`
+  ).join("");
+  historyList.querySelectorAll(".history-item").forEach((el) => {
+    el.addEventListener("click", () => {
+      const x = Number(el.dataset.x), y = Number(el.dataset.y);
+      cursor = { x, y };
+      puck.style.left = `${x * 100}%`;
+      puck.style.top = `${y * 100}%`;
+      const { year, energy } = coordsFromXY(x, y);
+      coordYear.textContent = year;
+      coordEnergy.textContent = `energy ${energy.toFixed(2)}`;
+      fetchPick();
+    });
+  });
+}
+
+// First-load delight pick — random year/energy so each landing is a surprise
+function firstPick() {
+  const x = 0.2 + Math.random() * 0.7; // bias toward 1969-2014
+  const y = 0.2 + Math.random() * 0.6; // bias toward mid energies
+  cursor = { x, y };
+  puck.style.left = `${x * 100}%`;
+  puck.style.top = `${y * 100}%`;
+  const { year, energy } = coordsFromXY(x, y);
+  coordYear.textContent = year;
+  coordEnergy.textContent = `energy ${energy.toFixed(2)}`;
+  fetchPick();
+  // Show the "drag me" hint briefly
+  setTimeout(() => compass.classList.add("show-hint"), 600);
+  setTimeout(() => compass.classList.remove("show-hint"), 5000);
+}
+
+firstPick();
 </script>
 </body>
 </html>
