@@ -44,6 +44,11 @@
   .load-input { font-size: 14px; font-weight: 600; color: var(--ink); max-width: 80%; line-height: 1.3; }
   .load-msg { font-size: 13px; color: var(--mute); transition: opacity .2s ease; min-height: 18px; }
   .load-msg.fade { opacity: 0; }
+  .play-poster { position: absolute; inset: 0; cursor: pointer; background: #000; display: flex; align-items: center; justify-content: center; }
+  .play-poster img { width: 100%; height: 100%; object-fit: cover; opacity: 0.55; transition: opacity .15s ease; }
+  .play-poster:hover img { opacity: 0.7; }
+  .play-poster .play-btn-big { position: absolute; width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #000; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; padding-left: 5px; box-shadow: 0 0 36px rgba(0,0,0,0.6); transition: transform .12s ease; }
+  .play-poster:active .play-btn-big { transform: scale(0.95); }
 
   .now { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 4px; gap: 12px; flex-wrap: wrap; }
   .now .who { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
@@ -147,13 +152,22 @@ async function go() {
 
 function setStatus(msg, err = false) { const s = $("#status"); s.className = "status" + (err ? " err" : ""); s.textContent = msg; }
 
+function isTouchDevice() { return window.matchMedia('(hover: none) and (pointer: coarse)').matches; }
+function loadPlayer(el, videoId) {
+  el.outerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+}
+
 function render(p) {
   const tag = `${p.artist} — ${p.track}`;
   history = [tag, ...history.filter(h => h !== tag)].slice(0, 12);
   const frame = $("#frame");
   if (p.videoId) {
     frame.classList.remove("empty");
-    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(p.videoId)}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    if (isTouchDevice()) {
+      frame.innerHTML = `<div class="play-poster" onclick="loadPlayer(this, '${p.videoId}')"><img src="https://img.youtube.com/vi/${p.videoId}/hqdefault.jpg" alt="" /><div class="play-btn-big">▶</div></div>`;
+    } else {
+      frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(p.videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    }
   } else {
     frame.classList.add("empty");
     frame.innerHTML = `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a>`;

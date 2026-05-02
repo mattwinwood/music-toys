@@ -125,6 +125,14 @@
   }
   .frame.empty .skeleton a { padding: 10px 18px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; }
 
+  /* Tap-to-play poster (mobile autoplay workaround) */
+  .play-poster { position: absolute; inset: 0; cursor: pointer; background: #000; display: flex; align-items: center; justify-content: center; }
+  .play-poster img { width: 100%; height: 100%; object-fit: cover; opacity: 0.55; transition: opacity .15s ease; }
+  .play-poster:hover img { opacity: 0.7; }
+  .play-poster .play-btn-big { position: absolute; width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #000; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; padding-left: 5px; box-shadow: 0 0 36px rgba(0,0,0,0.6); transition: transform .12s ease; }
+  .play-poster:hover .play-btn-big { transform: scale(1.05); }
+  .play-poster:active .play-btn-big { transform: scale(0.95); }
+
   /* Fun loading: spinning vinyl + ticker copy */
   .vinyl {
     position: relative; width: 88px; height: 88px;
@@ -226,6 +234,22 @@
 </div>
 
 <script>
+function isTouchDevice() {
+  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+}
+function loadPlayer(el, videoId) {
+  el.outerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+}
+function playerHtml(videoId, fallbackQuery) {
+  if (!videoId) {
+    return `<div class="skeleton">Couldn't embed in-page<br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(fallbackQuery || '')}" target="_blank" rel="noopener">▶ Open on YouTube</a></div>`;
+  }
+  if (isTouchDevice()) {
+    return `<div class="play-poster" onclick="loadPlayer(this, '${videoId}')"><img src="https://img.youtube.com/vi/${videoId}/hqdefault.jpg" alt="" /><div class="play-btn-big">▶</div></div>`;
+  }
+  return `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+}
+
 const compass = document.getElementById("compass");
 const puck = document.getElementById("puck");
 const ticksEl = document.getElementById("ticks");
@@ -437,10 +461,10 @@ function render(p, where) {
 
   if (p.videoId) {
     frame.classList.remove("empty");
-    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(p.videoId)}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    frame.innerHTML = playerHtml(p.videoId, p.fallbackQuery);
   } else {
     frame.classList.add("empty");
-    frame.innerHTML = `<div class="skeleton">Couldn't embed in-page<br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a></div>`;
+    frame.innerHTML = playerHtml(null, p.fallbackQuery);
   }
 
   meta.classList.remove("empty");
