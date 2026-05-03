@@ -18,7 +18,7 @@
     const fallback = track && track.fallbackQuery;
 
     if (!preview) {
-      return `<div class="mt-player-fallback">
+      return `<div class="mt-player-fallback" data-unavailable="1">
         ${cover ? `<img src="${escAttr(cover)}" alt="" style="max-width:120px;border-radius:8px;opacity:0.7" />` : ""}
         <div>No preview available.${fallback ? ` <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(fallback)}" target="_blank" rel="noopener">▶ Try YouTube</a>` : ""}</div>
       </div>`;
@@ -38,8 +38,21 @@
     </div>`;
   };
 
+  function emitUnavailable(el) {
+    if (!el || el.dataset.unavailableEmitted === "1") return;
+    el.dataset.unavailableEmitted = "1";
+    setTimeout(() => {
+      el.dispatchEvent(new CustomEvent("mt-unavailable", { bubbles: true }));
+    }, 0);
+  }
+
   window.bindPlayers = function (scope) {
     scope = scope || document;
+    // Tracks with no preview at all — surface as unavailable so toys can re-pick.
+    scope.querySelectorAll(".mt-player-fallback[data-unavailable='1']:not([data-bound])").forEach((el) => {
+      el.setAttribute("data-bound", "1");
+      emitUnavailable(el);
+    });
     scope.querySelectorAll(".mt-player:not([data-bound])").forEach((el) => {
       el.setAttribute("data-bound", "1");
       const audio = el.querySelector(".mt-audio");
@@ -58,9 +71,40 @@
         el.classList.toggle("mt-playing", state === "playing");
       }
 
+      let playAttempts = 0;
       function tryPlay() {
-        const p = audio.play();
-        if (p && typeof p.catch === "function") p.catch(() => { /* autoplay blocked — wait for tap */ });
+        // Try once. If readyState too low, listen for multiple readiness events and retry.
+        const attempt = () => {
+          if (audio.dataset.giveup === "1") return;
+          playAttempts++;
+          const p = audio.play();
+          if (p && typeof p.catch === "function") {
+            p.catch((err) => {
+              // NotAllowedError = autoplay blocked by browser policy. Don't keep retrying.
+              if (err && err.name === "NotAllowedError") {
+                audio.dataset.giveup = "1";
+                return;
+              }
+              // Otherwise it's likely a not-ready state — wait for next readiness event.
+              if (playAttempts < 5) {
+                const onReady = () => attempt();
+                audio.addEventListener("canplay", onReady, { once: true });
+                audio.addEventListener("canplaythrough", onReady, { once: true });
+                audio.addEventListener("loadeddata", onReady, { once: true });
+              }
+            });
+          }
+        };
+        if (audio.readyState >= 2) {
+          attempt();
+        } else {
+          // Force load + listen for readiness
+          try { audio.load(); } catch {}
+          audio.addEventListener("canplay", attempt, { once: true });
+          audio.addEventListener("loadeddata", attempt, { once: true });
+          // And try anyway in case the events already fired
+          attempt();
+        }
       }
 
       toggle.addEventListener("click", (e) => {
