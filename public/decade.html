@@ -338,26 +338,26 @@ function setPuckPx(clientX, clientY) {
 // - mostly horizontal/diagonal OR clean tap → take control
 const DRAG_THRESHOLD = 8;       // pixels before we decide
 const VERTICAL_RATIO = 1.4;     // dy must exceed dx by this factor to "scroll"
-let pending = null;             // { startX, startY, pointerId, decided, isDrag }
+let pointerState = null;        // { startX, startY, pointerId, decided, isDrag }
 
 compass.addEventListener("pointerdown", (e) => {
-  pending = { startX: e.clientX, startY: e.clientY, pointerId: e.pointerId, decided: false, isDrag: false };
+  pointerState = { startX: e.clientX, startY: e.clientY, pointerId: e.pointerId, decided: false, isDrag: false };
 });
 
 compass.addEventListener("pointermove", (e) => {
-  if (!pending) return;
-  if (!pending.decided) {
-    const dx = Math.abs(e.clientX - pending.startX);
-    const dy = Math.abs(e.clientY - pending.startY);
+  if (!pointerState) return;
+  if (!pointerState.decided) {
+    const dx = Math.abs(e.clientX - pointerState.startX);
+    const dy = Math.abs(e.clientY - pointerState.startY);
     if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
     if (dy > dx * VERTICAL_RATIO) {
       // Predominantly vertical — user is scrolling. Abandon.
-      pending = null;
+      pointerState = null;
       return;
     }
     // Committed to drag.
-    pending.decided = true;
-    pending.isDrag = true;
+    pointerState.decided = true;
+    pointerState.isDrag = true;
     compass.classList.add("dragging");
     puck.classList.remove("idle");
     compass.classList.remove("show-hint");
@@ -365,7 +365,7 @@ compass.addEventListener("pointermove", (e) => {
     setPuckPx(e.clientX, e.clientY);
     scheduleFetch();
     e.preventDefault();
-  } else if (pending.isDrag) {
+  } else if (pointerState.isDrag) {
     setPuckPx(e.clientX, e.clientY);
     scheduleFetch();
     e.preventDefault();
@@ -373,24 +373,24 @@ compass.addEventListener("pointermove", (e) => {
 });
 
 compass.addEventListener("pointerup", (e) => {
-  if (!pending) return;
-  const dx = Math.abs(e.clientX - pending.startX);
-  const dy = Math.abs(e.clientY - pending.startY);
+  if (!pointerState) return;
+  const dx = Math.abs(e.clientX - pointerState.startX);
+  const dy = Math.abs(e.clientY - pointerState.startY);
   const moved = Math.hypot(dx, dy);
-  if (!pending.decided && moved < DRAG_THRESHOLD) {
+  if (!pointerState.decided && moved < DRAG_THRESHOLD) {
     // Clean tap — set puck to tap location and fetch.
     puck.classList.remove("idle");
     compass.classList.remove("show-hint");
     setPuckPx(e.clientX, e.clientY);
     fetchPick(true);
-  } else if (pending.isDrag) {
+  } else if (pointerState.isDrag) {
     compass.classList.remove("dragging");
     fetchPick(true);
   }
-  pending = null;
+  pointerState = null;
 });
 
-compass.addEventListener("pointercancel", () => { pending = null; compass.classList.remove("dragging"); });
+compass.addEventListener("pointercancel", () => { pointerState = null; compass.classList.remove("dragging"); });
 
 function scheduleFetch() {
   if (dragTimer) clearTimeout(dragTimer);
