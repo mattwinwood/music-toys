@@ -85,30 +85,44 @@
     box-shadow: 0 0 8px rgba(157, 108, 255, 0.5);
   }
 
-  /* The active puck */
+  /* The active puck — IS the drag handle */
   .puck {
-    position: absolute; width: 32px; height: 32px;
+    position: absolute; width: 36px; height: 36px;
     border-radius: 50%; background: var(--accent);
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 0 8px rgba(157, 108, 255, 0.18), 0 0 40px rgba(157, 108, 255, 0.6);
+    box-shadow: 0 0 0 10px rgba(157, 108, 255, 0.18), 0 0 40px rgba(157, 108, 255, 0.6);
     transition: transform .08s ease;
-    pointer-events: none; z-index: 5;
+    z-index: 5;
+    touch-action: none;        /* on the puck only: no scroll interception */
+    cursor: grab;
   }
-  .compass.dragging .puck { transform: translate(-50%, -50%) scale(1.15); }
+  .puck:active, .compass.dragging .puck { cursor: grabbing; }
+  /* Expand hit target by 16px on all sides so it's easy to grab on touch */
+  .puck::before {
+    content: ""; position: absolute; inset: -16px;
+    border-radius: 50%;
+  }
+  .puck::after {
+    content: ""; position: absolute; inset: 12px;
+    border-radius: 50%; background: rgba(255,255,255,0.6);
+    pointer-events: none;
+  }
+  .compass.dragging .puck { transform: translate(-50%, -50%) scale(1.18); }
   @keyframes pulse {
     0%, 100% { box-shadow: 0 0 0 8px rgba(157, 108, 255, 0.18), 0 0 40px rgba(157, 108, 255, 0.5); }
     50%      { box-shadow: 0 0 0 14px rgba(157, 108, 255, 0.06), 0 0 60px rgba(157, 108, 255, 0.7); }
   }
   .puck.idle { animation: pulse 2.4s ease-in-out infinite; }
 
-  /* Hint arrow that appears on first load */
+  /* Hint arrow that appears on first load — points at the puck */
   .first-hint {
     position: absolute; top: 50%; left: 50%; transform: translate(40px, -50%);
-    color: var(--mute); font-size: 12px; letter-spacing: 0.04em;
-    background: rgba(10,10,12,0.85); border: 1px solid var(--line);
-    border-radius: 999px; padding: 6px 12px; pointer-events: none;
+    color: var(--ink); font-size: 12px; letter-spacing: 0.04em;
+    background: rgba(157, 108, 255, 0.95); border: none;
+    border-radius: 999px; padding: 7px 14px; pointer-events: none;
     opacity: 0; transition: opacity .4s ease;
-    white-space: nowrap;
+    white-space: nowrap; font-weight: 600;
+    box-shadow: 0 4px 16px rgba(157, 108, 255, 0.4);
   }
   .compass.show-hint .first-hint { opacity: 1; }
 
@@ -318,65 +332,65 @@ function setPuckPx(clientX, clientY) {
   return { year, energy };
 }
 
-// Drag-vs-scroll intent detection. On pointerdown we DON'T capture or
-// commit. We wait for the first few pixels of movement to decide:
-// - mostly vertical → release control, let the page scroll
-// - mostly horizontal/diagonal OR clean tap → take control
-const DRAG_THRESHOLD = 8;       // pixels before we decide
-const VERTICAL_RATIO = 1.4;     // dy must exceed dx by this factor to "scroll"
-let pointerState = null;        // { startX, startY, pointerId, decided, isDrag }
+// Two interaction modes — both work without fighting page scroll:
+//
+//   1. Drag the PUCK directly: 2D drag (year × energy). The puck has
+//      touch-action:none, so the browser doesn't intercept. The compass
+//      surface itself has touch-action:pan-y, so scrolling past it works.
+//   2. Tap any other spot on the compass: jump puck there.
+//
+// No more "intent detection"; the puck is unambiguously the drag handle.
+
+let pointerState = null; // { mode: "drag" | "tap", startX, startY, pointerId }
+
+puck.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  pointerState = { mode: "drag", pointerId: e.pointerId };
+  compass.classList.add("dragging");
+  puck.classList.remove("idle");
+  compass.classList.remove("show-hint");
+  try { puck.setPointerCapture(e.pointerId); } catch {}
+});
 
 compass.addEventListener("pointerdown", (e) => {
-  pointerState = { startX: e.clientX, startY: e.clientY, pointerId: e.pointerId, decided: false, isDrag: false };
+  if (e.target === puck || puck.contains(e.target)) return; // puck handled above
+  pointerState = { mode: "tap", startX: e.clientX, startY: e.clientY, pointerId: e.pointerId };
 });
 
-compass.addEventListener("pointermove", (e) => {
-  if (!pointerState) return;
-  if (!pointerState.decided) {
-    const dx = Math.abs(e.clientX - pointerState.startX);
-    const dy = Math.abs(e.clientY - pointerState.startY);
-    if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    if (dy > dx * VERTICAL_RATIO) {
-      // Predominantly vertical — user is scrolling. Abandon.
-      pointerState = null;
-      return;
-    }
-    // Committed to drag.
-    pointerState.decided = true;
-    pointerState.isDrag = true;
-    compass.classList.add("dragging");
-    puck.classList.remove("idle");
-    compass.classList.remove("show-hint");
-    try { compass.setPointerCapture(e.pointerId); } catch {}
-    setPuckPx(e.clientX, e.clientY);
-    scheduleFetch();
-    e.preventDefault();
-  } else if (pointerState.isDrag) {
-    setPuckPx(e.clientX, e.clientY);
-    scheduleFetch();
-    e.preventDefault();
-  }
-});
+const handleMove = (e) => {
+  if (!pointerState || pointerState.mode !== "drag") return;
+  setPuckPx(e.clientX, e.clientY);
+  scheduleFetch();
+  e.preventDefault();
+};
+puck.addEventListener("pointermove", handleMove);
+compass.addEventListener("pointermove", handleMove);
 
-compass.addEventListener("pointerup", (e) => {
+const handleUp = (e) => {
   if (!pointerState) return;
-  const dx = Math.abs(e.clientX - pointerState.startX);
-  const dy = Math.abs(e.clientY - pointerState.startY);
-  const moved = Math.hypot(dx, dy);
-  if (!pointerState.decided && moved < DRAG_THRESHOLD) {
-    // Clean tap — set puck to tap location and fetch.
-    puck.classList.remove("idle");
-    compass.classList.remove("show-hint");
-    setPuckPx(e.clientX, e.clientY);
-    fetchPick(true);
-  } else if (pointerState.isDrag) {
+  if (pointerState.mode === "drag") {
     compass.classList.remove("dragging");
     fetchPick(true);
+  } else {
+    const dx = Math.abs(e.clientX - pointerState.startX);
+    const dy = Math.abs(e.clientY - pointerState.startY);
+    if (Math.hypot(dx, dy) < 8) {
+      // Clean tap on the surface — jump puck and fetch
+      puck.classList.remove("idle");
+      compass.classList.remove("show-hint");
+      setPuckPx(e.clientX, e.clientY);
+      fetchPick(true);
+    }
   }
   pointerState = null;
-});
+};
+puck.addEventListener("pointerup", handleUp);
+compass.addEventListener("pointerup", handleUp);
 
-compass.addEventListener("pointercancel", () => { pointerState = null; compass.classList.remove("dragging"); });
+const handleCancel = () => { pointerState = null; compass.classList.remove("dragging"); };
+puck.addEventListener("pointercancel", handleCancel);
+compass.addEventListener("pointercancel", handleCancel);
 
 function scheduleFetch() {
   if (dragTimer) clearTimeout(dragTimer);
