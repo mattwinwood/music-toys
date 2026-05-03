@@ -44,8 +44,8 @@
     audio.addEventListener("play", () => {
       log("audio play, src:", (audio.src || "").slice(0, 60), "ct:", audio.currentTime.toFixed(2));
       if (activePlayer) {
+        activePlayer.classList.remove("mt-needs-tap");
         setIconsState(activePlayer, "playing");
-        // Solo: nothing to do — there's only one audio element by design.
       }
     });
     audio.addEventListener("pause", () => {
@@ -169,6 +169,9 @@
     }
     activePlayer = el;
     if (src && a.src !== src) {
+      // Explicit pause before src swap — some Safari versions get confused
+      // about play state when src changes mid-load.
+      try { if (!a.paused) a.pause(); } catch {}
       a.src = src;
       try { a.load(); } catch {}
     }
@@ -181,10 +184,13 @@
     if (p && typeof p.catch === "function") {
       p.catch((err) => {
         log("play() rejected:", err && err.name, "src:", (a.src || "").slice(0, 60));
-        // NotAllowedError = autoplay blocked. The visible play button remains
-        // for the user to tap. Don't try to be clever — the unlock should
-        // prevent this in the common case.
-        if (err && err.name === "NotAllowedError") return;
+        // NotAllowedError = autoplay blocked. Surface a prominent "tap to play"
+        // affordance on the player so the user knows to tap. After they tap
+        // once, the singleton audio is blessed and future tracks autoplay.
+        if (err && err.name === "NotAllowedError") {
+          el.classList.add("mt-needs-tap");
+          return;
+        }
         // AbortError commonly fires when src changes mid-play; safe to ignore.
         if (err && err.name === "AbortError") return;
         // Anything else: wait for the next readiness event and try once more.
@@ -193,7 +199,11 @@
           if (p2 && typeof p2.catch === "function") {
             p2.catch((err2) => {
               log("retry play() rejected:", err2 && err2.name);
-              if (err2 && (err2.name === "NotAllowedError" || err2.name === "AbortError")) return;
+              if (err2 && err2.name === "NotAllowedError") {
+                el.classList.add("mt-needs-tap");
+                return;
+              }
+              if (err2 && err2.name === "AbortError") return;
               emitUnavailable(el, "play-failed-after-canplay");
             });
           }

@@ -28,6 +28,26 @@
 .mt-toggle[data-state="playing"] { padding-left: 0; }
 .mt-player:hover .mt-toggle { transform: translate(-50%, -50%) scale(1.06); }
 .mt-toggle:active { transform: translate(-50%, -50%) scale(0.96); }
+
+/* Autoplay was blocked — pulse the play button so it's obvious to tap. */
+.mt-player.mt-needs-tap .mt-toggle {
+  animation: mtTapPulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 0 8px rgba(255,255,255,0.15), 0 8px 36px rgba(0,0,0,0.55);
+}
+.mt-player.mt-needs-tap::after {
+  content: "Tap to play";
+  position: absolute; left: 50%; top: calc(50% + 56px);
+  transform: translateX(-50%);
+  font: 600 11px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: #fff; background: rgba(0,0,0,0.55);
+  padding: 6px 10px; border-radius: 999px;
+  pointer-events: none;
+}
+@keyframes mtTapPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 8px rgba(255,255,255,0.15), 0 8px 36px rgba(0,0,0,0.55); }
+  50%      { transform: translate(-50%, -50%) scale(1.08); box-shadow: 0 0 0 16px rgba(255,255,255,0.04), 0 8px 48px rgba(0,0,0,0.7); }
+}
 .mt-progress {
   position: absolute; left: 0; right: 0; bottom: 0;
   height: 3px; background: rgba(255,255,255,0.1);
