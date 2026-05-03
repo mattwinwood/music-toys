@@ -62,15 +62,28 @@
   }
   .tick-y.major { background: rgba(255,255,255,0.08); }
 
-  /* Genre hint zones — very faint */
-  .zones { position: absolute; inset: 0; pointer-events: none; opacity: 0.55; }
-  .zone { position: absolute; font: 11px/1 ui-sans-serif; color: var(--mute); letter-spacing: 0.08em; text-transform: uppercase; transform: translate(-50%, -50%); white-space: nowrap; }
+  /* Genre hint zones — barely there, just enough to navigate by */
+  .zones { position: absolute; inset: 0; pointer-events: none; opacity: 0.32; transition: opacity .25s ease; }
+  .compass:hover .zones, .compass.dragging .zones { opacity: 0.55; }
+  .zone {
+    position: absolute;
+    font: italic 500 11px/1.1 ui-serif, Georgia, "Times New Roman", serif;
+    color: var(--mute);
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+  }
 
-  /* Axis labels */
+  /* Axis labels — feelings, not specs */
   .axis-label {
-    position: absolute; font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
-    color: var(--mute); letter-spacing: 0.18em; text-transform: uppercase; pointer-events: none;
-    background: rgba(10,10,12,0.7); padding: 4px 8px; border-radius: 4px;
+    position: absolute;
+    font: italic 500 13px/1.1 ui-serif, Georgia, "Times New Roman", serif;
+    color: var(--ink); pointer-events: none;
+    background: rgba(10,10,12,0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 6px 10px; border-radius: 999px;
+    letter-spacing: 0.01em;
+    opacity: 0.9;
   }
   .axis-label.energy-high { left: 12px; top: 12px; }
   .axis-label.energy-low { left: 12px; bottom: 26px; }
@@ -260,8 +273,8 @@
       <div class="compass" id="compass">
         <div class="ticks" id="ticks"></div>
         <div class="zones" id="zones"></div>
-        <div class="axis-label energy-high">Peak / loud</div>
-        <div class="axis-label energy-low">Sparse / quiet</div>
+        <div class="axis-label energy-high">Going off</div>
+        <div class="axis-label energy-low">Drifting</div>
         <div class="coord" id="coord"><b id="coordYear">—</b><span id="coordEnergy">—</span></div>
         <div class="puck idle" id="puck" style="left:50%;top:50%">
           <div class="puck-hint">👆 Drag me</div>
@@ -302,6 +315,9 @@ let pending = null;
 let cursor = { x: 0.5, y: 0.5 };
 let dragTimer = null;
 let lastPickAt = 0;
+const failedTags = new Set(); // tracks we couldn't play — exclude from future picks
+let unavailableRetries = 0;   // consecutive auto-fallback re-picks
+const MAX_UNAVAILABLE_RETRIES = 3;
 
 // Build decade ticks
 function buildTicks() {
@@ -473,19 +489,24 @@ function stopLoadingState() {
   if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
 }
 
-async function fetchPick(immediate = false) {
+async function fetchPick(immediate = false, { isFallbackRetry = false } = {}) {
   if (dragTimer) { clearTimeout(dragTimer); dragTimer = null; }
   if (pending) pending.abort();
+  if (!isFallbackRetry) unavailableRetries = 0;
   const ctrl = new AbortController();
   pending = ctrl;
   const { year, energy } = coordsFromXY(cursor.x, cursor.y);
   status.className = "status";
-  status.textContent = "";
+  if (!isFallbackRetry) status.textContent = "";
   startLoadingState(year, energy);
   try {
     const res = await fetch("/api/compass", {
       method: "POST", headers: {"content-type":"application/json"},
-      body: JSON.stringify({ year, energy, already_heard: history.map(h => h.tag) }),
+      body: JSON.stringify({
+        year,
+        energy,
+        already_heard: [...history.map(h => h.tag), ...failedTags],
+      }),
       signal: ctrl.signal,
     });
     const data = await res.json();
@@ -535,6 +556,22 @@ function render(p, where) {
   frame.classList.remove("empty");
   frame.innerHTML = mtPlayerHtml(p, { autoplay: true });
   bindPlayers(frame);
+
+  // If this track has no preview, or its audio fails to load, fall back to the next-closest pick.
+  frame.addEventListener("mt-unavailable", () => {
+    failedTags.add(tag);
+    history = history.filter(h => h.tag !== tag);
+    renderHistory();
+    if (unavailableRetries < MAX_UNAVAILABLE_RETRIES) {
+      unavailableRetries++;
+      status.className = "status";
+      status.textContent = "Track unavailable — finding the next closest…";
+      fetchPick(true, { isFallbackRetry: true });
+    } else {
+      status.className = "status err";
+      status.textContent = "Couldn't find a playable track here. Try a different spot.";
+    }
+  }, { once: true });
 
   meta.classList.remove("empty");
   meta.innerHTML = `

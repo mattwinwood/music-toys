@@ -73,24 +73,26 @@
 
       let playAttempts = 0;
       function tryPlay() {
-        // Try once. If readyState too low, listen for multiple readiness events and retry.
         const attempt = () => {
           if (audio.dataset.giveup === "1") return;
           playAttempts++;
           const p = audio.play();
           if (p && typeof p.catch === "function") {
             p.catch((err) => {
-              // NotAllowedError = autoplay blocked by browser policy. Don't keep retrying.
+              // NotAllowedError = autoplay blocked by browser policy. Don't keep retrying;
+              // the toggle stays visible so the user can press play themselves.
               if (err && err.name === "NotAllowedError") {
                 audio.dataset.giveup = "1";
                 return;
               }
-              // Otherwise it's likely a not-ready state — wait for next readiness event.
               if (playAttempts < 5) {
                 const onReady = () => attempt();
                 audio.addEventListener("canplay", onReady, { once: true });
                 audio.addEventListener("canplaythrough", onReady, { once: true });
                 audio.addEventListener("loadeddata", onReady, { once: true });
+              } else {
+                // Out of retries with a load-related error — treat as unavailable.
+                emitUnavailable(el);
               }
             });
           }
@@ -98,14 +100,15 @@
         if (audio.readyState >= 2) {
           attempt();
         } else {
-          // Force load + listen for readiness
           try { audio.load(); } catch {}
           audio.addEventListener("canplay", attempt, { once: true });
           audio.addEventListener("loadeddata", attempt, { once: true });
-          // And try anyway in case the events already fired
           attempt();
         }
       }
+
+      // The audio source itself failed to load (404, CORS, network) — unavailable.
+      audio.addEventListener("error", () => emitUnavailable(el));
 
       toggle.addEventListener("click", (e) => {
         e.stopPropagation();
