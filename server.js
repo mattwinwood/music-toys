@@ -66,6 +66,42 @@ async function callClaude(system, user, { maxTokens = 800, model = MODEL } = {})
 
 // ---------- YouTube helper ----------
 
+// Deezer 30-second previews — free public API, no auth, autoplay-friendly on
+// mobile because it's a direct MP3 (not a video iframe). Returns null if the
+// track isn't on Deezer.
+async function searchDeezer(query) {
+  try {
+    const u = `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=1`;
+    const res = await fetch(u, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const t = data.data?.[0];
+    if (!t || !t.preview) return null;
+    return {
+      preview: t.preview,
+      cover: t.album?.cover_medium || t.album?.cover || null,
+      coverBig: t.album?.cover_big || t.album?.cover_xl || null,
+      deezerUrl: t.link || null,
+      durationSec: 30,
+    };
+  } catch { return null; }
+}
+
+async function attachPreviews(items) {
+  return Promise.all(items.map(async (it) => {
+    const q = `${it.artist} ${it.track}`;
+    const dz = await searchDeezer(q);
+    return {
+      ...it,
+      preview: dz?.preview || null,
+      cover: dz?.cover || null,
+      coverBig: dz?.coverBig || null,
+      deezerUrl: dz?.deezerUrl || null,
+      fallbackQuery: q,
+    };
+  }));
+}
+
 async function ytSearchVideoId(query) {
   const key = process.env.YOUTUBE_API_KEY;
   if (!key) return null;
@@ -84,15 +120,6 @@ async function ytSearchVideoId(query) {
   } catch {
     return null;
   }
-}
-
-async function attachVideoIds(items) {
-  // items: array of { artist, track, ... }
-  return Promise.all(items.map(async (it) => ({
-    ...it,
-    videoId: await ytSearchVideoId(`${it.artist} ${it.track}`),
-    fallbackQuery: `${it.artist} ${it.track}`,
-  })));
 }
 
 // ---------- Toy 1: The Sound Of… ----------
@@ -117,7 +144,7 @@ async function handleSoundOf(req, res) {
     }
     const userMsg = `Input: ${input}\n\nAlready heard:\n${(already_heard || []).map((x) => `- ${x}`).join("\n") || "(none)"}`;
     const pick = await callClaude(SOUND_OF_SYSTEM, userMsg, { maxTokens: 400, model: FAST_MODEL });
-    const [withYt] = await attachVideoIds([pick]);
+    const [withYt] = await attachPreviews([pick]);
     sendJson(res, 200, { pick: withYt });
   } catch (e) {
     sendJson(res, e.status || 500, { error: e.message });
@@ -156,7 +183,7 @@ async function handleRemember(req, res) {
     }
     const result = await callClaude(REMEMBER_SYSTEM, `User's memory:\n${description}`, { maxTokens: 1200 });
     const all = [result.best_guess, ...(result.alternates || [])].filter(Boolean);
-    const withYt = await attachVideoIds(all);
+    const withYt = await attachPreviews(all);
     result.best_guess = withYt[0];
     result.alternates = withYt.slice(1);
     sendJson(res, 200, { result });
@@ -193,7 +220,7 @@ async function handleCompass(req, res) {
     }
     const userMsg = `Year: ${year}\nEnergy: ${energy.toFixed(2)} (0=ambient, 1=peak)\n\nAlready heard:\n${(already_heard || []).map((x) => `- ${x}`).join("\n") || "(none)"}`;
     const pick = await callClaude(COMPASS_SYSTEM, userMsg, { maxTokens: 400, model: FAST_MODEL });
-    const [withYt] = await attachVideoIds([pick]);
+    const [withYt] = await attachPreviews([pick]);
     sendJson(res, 200, { pick: withYt });
   } catch (e) {
     sendJson(res, e.status || 500, { error: e.message });
@@ -233,7 +260,7 @@ async function handleTwoTruths(req, res) {
     if (!Array.isArray(round.songs) || round.songs.length !== 3) {
       throw new Error("Bad round shape");
     }
-    const withYt = await attachVideoIds(round.songs);
+    const withYt = await attachPreviews(round.songs);
     round.songs = withYt;
     sendJson(res, 200, { round });
   } catch (e) {
@@ -264,7 +291,7 @@ async function handleDontExist(req, res) {
     }
     const userMsg = `Fantasy song: ${fantasy}\n\nAlready heard:\n${(already_heard || []).map((x) => `- ${x}`).join("\n") || "(none)"}`;
     const pick = await callClaude(DONTEXIST_SYSTEM, userMsg, { maxTokens: 500, model: FAST_MODEL });
-    const [withYt] = await attachVideoIds([pick]);
+    const [withYt] = await attachPreviews([pick]);
     sendJson(res, 200, { pick: withYt });
   } catch (e) {
     sendJson(res, e.status || 500, { error: e.message });
@@ -293,7 +320,7 @@ async function handleYearWars(req, res) {
     const userMsg = `Already used (avoid):\n${(already_used || []).map((x) => `- ${x}`).join("\n") || "(none)"}`;
     const round = await callClaude(YEAR_WARS_SYSTEM, userMsg, { maxTokens: 400, model: FAST_MODEL });
     if (!round.song_a || !round.song_b) throw new Error("Bad round shape");
-    const [a, b] = await attachVideoIds([round.song_a, round.song_b]);
+    const [a, b] = await attachPreviews([round.song_a, round.song_b]);
     round.song_a = a; round.song_b = b;
     sendJson(res, 200, { round });
   } catch (e) {
@@ -332,7 +359,7 @@ async function handleAlbum(req, res) {
     }
     const album = await callClaude(ALBUM_SYSTEM, `Concept: ${concept}`, { maxTokens: 1200, model: FAST_MODEL });
     if (!Array.isArray(album.tracklist) || album.tracklist.length !== 5) throw new Error("Bad album shape");
-    album.tracklist = await attachVideoIds(album.tracklist);
+    album.tracklist = await attachPreviews(album.tracklist);
     sendJson(res, 200, { album });
   } catch (e) {
     sendJson(res, e.status || 500, { error: e.message });
@@ -367,7 +394,7 @@ async function handleTarot(req, res) {
       return sendJson(res, 400, { error: "Tell me about your week first." });
     }
     const reading = await callClaude(TAROT_SYSTEM, `Querent's moment:\n${mood}`, { maxTokens: 800, model: FAST_MODEL });
-    const [past, present, future] = await attachVideoIds([reading.past, reading.present, reading.future]);
+    const [past, present, future] = await attachPreviews([reading.past, reading.present, reading.future]);
     reading.past = past; reading.present = present; reading.future = future;
     sendJson(res, 200, { reading });
   } catch (e) {

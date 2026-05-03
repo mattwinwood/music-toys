@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Decade Compass</title>
+<link rel="stylesheet" href="/player.css" />
 <style>
   :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#9d6cff; }
   * { box-sizing: border-box; }
@@ -234,23 +235,8 @@
   </div>
 </div>
 
+<script src="/player.js"></script>
 <script>
-function isTouchDevice() {
-  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-}
-function loadPlayer(el, videoId) {
-  el.outerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
-}
-function playerHtml(videoId, fallbackQuery) {
-  if (!videoId) {
-    return `<div class="skeleton">Couldn't embed in-page<br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(fallbackQuery || '')}" target="_blank" rel="noopener">▶ Open on YouTube</a></div>`;
-  }
-  if (isTouchDevice()) {
-    return `<div class="play-poster" onclick="loadPlayer(this, '${videoId}')"><img src="https://img.youtube.com/vi/${videoId}/hqdefault.jpg" alt="" /><div class="play-btn-big">▶</div></div>`;
-  }
-  return `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
-}
-
 const compass = document.getElementById("compass");
 const puck = document.getElementById("puck");
 const ticksEl = document.getElementById("ticks");
@@ -497,13 +483,9 @@ function render(p, where) {
   }
   history = [{ tag, ...where }, ...history.filter(h => h.tag !== tag)].slice(0, 16);
 
-  if (p.videoId) {
-    frame.classList.remove("empty");
-    frame.innerHTML = playerHtml(p.videoId, p.fallbackQuery);
-  } else {
-    frame.classList.add("empty");
-    frame.innerHTML = playerHtml(null, p.fallbackQuery);
-  }
+  frame.classList.remove("empty");
+  frame.innerHTML = mtPlayerHtml(p, { autoplay: true });
+  bindPlayers(frame);
 
   meta.classList.remove("empty");
   meta.innerHTML = `

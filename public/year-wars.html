@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Year Wars</title>
+<link rel="stylesheet" href="/player.css" />
 <style>
   :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#ff3d68; --green:#5ad17a; --red:#ff5a5a; }
   * { box-sizing: border-box; }
@@ -120,18 +121,11 @@
   <div class="status" id="status"></div>
 </div>
 
+<script src="/player.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
-function isTouchDevice() { return window.matchMedia('(hover: none) and (pointer: coarse)').matches; }
-function loadPlayer(el, videoId) {
-  el.outerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
-}
-function frameHtml(s) {
-  if (!s.videoId) return `<div class="frame empty"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(s.fallbackQuery)}" target="_blank" rel="noopener">▶ YouTube</a></div>`;
-  if (isTouchDevice()) return `<div class="frame"><div class="play-poster" onclick="loadPlayer(this, '${s.videoId}')"><img src="https://img.youtube.com/vi/${s.videoId}/hqdefault.jpg" alt="" /><div class="play-btn-big">▶</div></div></div>`;
-  return `<div class="frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(s.videoId)}?playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
-}
+function frameHtml(s) { return mtPlayerHtml(s, { autoplay: false }); }
 
 let score = parseInt(localStorage.getItem("yw_score") || "0", 10);
 let rounds = parseInt(localStorage.getItem("yw_rounds") || "0", 10);
@@ -209,6 +203,7 @@ function renderBattle() {
     if (answered) return;
     answer(el.dataset.vote);
   }));
+  bindPlayers($("#battle"));
 }
 
 function answer(pick) {

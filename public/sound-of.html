@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Sound Of…</title>
+<link rel="stylesheet" href="/player.css" />
 <style>
   :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#ff6a3d; }
   * { box-sizing: border-box; }
@@ -98,6 +99,7 @@
   </section>
 </div>
 
+<script src="/player.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
@@ -152,26 +154,13 @@ async function go() {
 
 function setStatus(msg, err = false) { const s = $("#status"); s.className = "status" + (err ? " err" : ""); s.textContent = msg; }
 
-function isTouchDevice() { return window.matchMedia('(hover: none) and (pointer: coarse)').matches; }
-function loadPlayer(el, videoId) {
-  el.outerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
-}
-
 function render(p) {
   const tag = `${p.artist} — ${p.track}`;
   history = [tag, ...history.filter(h => h !== tag)].slice(0, 12);
   const frame = $("#frame");
-  if (p.videoId) {
-    frame.classList.remove("empty");
-    if (isTouchDevice()) {
-      frame.innerHTML = `<div class="play-poster" onclick="loadPlayer(this, '${p.videoId}')"><img src="https://img.youtube.com/vi/${p.videoId}/hqdefault.jpg" alt="" /><div class="play-btn-big">▶</div></div>`;
-    } else {
-      frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(p.videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
-    }
-  } else {
-    frame.classList.add("empty");
-    frame.innerHTML = `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a>`;
-  }
+  frame.classList.remove("empty");
+  frame.innerHTML = mtPlayerHtml(p, { autoplay: true });
+  bindPlayers(frame);
   $("#who").innerHTML = `${esc(p.artist)} — ${esc(p.track)} <span class="y">${esc(p.year || "")}</span>`;
   $("#why").textContent = p.why || "";
   $("#player").classList.add("show");

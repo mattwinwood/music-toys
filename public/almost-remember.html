@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Song You Almost Remember</title>
+<link rel="stylesheet" href="/player.css" />
 <style>
   :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#3da4ff; }
   * { box-sizing: border-box; }
@@ -103,6 +104,7 @@
   </section>
 </div>
 
+<script src="/player.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -146,13 +148,6 @@ async function go() {
 
 function setStatus(msg, err = false) { const s = $("#status"); s.className = "status" + (err ? " err" : ""); s.textContent = msg; }
 
-function frameHtml(item) {
-  if (item.videoId) {
-    return `<div class="frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(item.videoId)}?rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
-  }
-  return `<div class="frame empty"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(item.fallbackQuery)}" target="_blank" rel="noopener">▶ Open on YouTube</a></div>`;
-}
-
 function render(r) {
   const b = r.best_guess || {};
   const conf = Math.round((b.confidence || 0) * 100);
@@ -160,7 +155,11 @@ function render(r) {
   $("#confFill").style.width = `${conf}%`;
   $("#bestWho").innerHTML = `${esc(b.artist)} — ${esc(b.track)} <span class="y">${esc(b.year || "")}</span>`;
   $("#bestWhy").textContent = b.why_this_matches || "";
-  $("#bestFrame").outerHTML = frameHtml(b).replace('class="frame"', 'class="frame" id="bestFrame"');
+  // Replace the placeholder #bestFrame with the player; preserve the id for future replaces
+  const newFrame = document.createElement("div");
+  newFrame.id = "bestFrame";
+  newFrame.innerHTML = mtPlayerHtml(b, { autoplay: false });
+  $("#bestFrame").replaceWith(newFrame);
 
   const alts = r.alternates || [];
   if (alts.length) {
@@ -169,11 +168,12 @@ function render(r) {
       <div class="alt">
         <div class="who">${esc(a.artist)} — ${esc(a.track)} <span class="y">${esc(a.year || "")}</span></div>
         <div class="why">${esc(a.why_this_matches)}</div>
-        ${frameHtml(a)}
+        ${mtPlayerHtml(a, { autoplay: false })}
       </div>`).join("");
   } else {
     $("#altSection").style.display = "none";
   }
+  bindPlayers(document);
 
   if (r.what_would_help) {
     $("#help").style.display = "";

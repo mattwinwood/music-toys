@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Music Tarot</title>
+<link rel="stylesheet" href="/player.css" />
 <style>
   :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#d4a3ff; --gold:#e0bb5e; }
   * { box-sizing: border-box; }
@@ -157,18 +158,11 @@
   </section>
 </div>
 
+<script src="/player.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
-function isTouchDevice() { return window.matchMedia('(hover: none) and (pointer: coarse)').matches; }
-function loadPlayer(el, videoId) {
-  el.outerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
-}
-function frameHtml(s) {
-  if (!s.videoId) return `<div class="frame empty"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(s.fallbackQuery)}" target="_blank" rel="noopener">▶ YouTube</a></div>`;
-  if (isTouchDevice()) return `<div class="frame"><div class="play-poster" onclick="loadPlayer(this, '${s.videoId}')"><img src="https://img.youtube.com/vi/${s.videoId}/hqdefault.jpg" alt="" /><div class="play-btn-big">▶</div></div></div>`;
-  return `<div class="frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(s.videoId)}?playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
-}
+function frameHtml(s) { return mtPlayerHtml(s, { autoplay: false }); }
 
 document.querySelectorAll(".ex").forEach(el => el.addEventListener("click", () => { $("#mood").value = el.dataset.v; }));
 $("#go").addEventListener("click", go);
@@ -228,14 +222,21 @@ function layout() {
         <div class="why">${esc(c.why)}</div>
       </div>
     </div>`).join("");
-  document.querySelectorAll(".card").forEach(el => el.addEventListener("click", () => {
+  bindPlayers($("#cards"));
+  document.querySelectorAll(".card").forEach(el => el.addEventListener("click", (e) => {
+    if (e.target.closest(".mt-player")) return; // play taps don't flip
     if (el.classList.contains("flipped")) return;
     el.classList.add("flipped");
+    // Auto-play this card's audio after the flip animation settles
+    setTimeout(() => {
+      const audio = el.querySelector(".mt-audio");
+      if (audio) audio.play().catch(() => {});
+    }, 800);
     if ([...document.querySelectorAll(".card")].every(x => x.classList.contains("flipped"))) {
       setTimeout(() => {
         $("#reading").textContent = currentReading.reading || "";
         $("#reading").classList.add("show");
-      }, 600);
+      }, 1000);
     }
   }));
   $("#reading").classList.remove("show");

@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Two Truths and a Lie</title>
+<link rel="stylesheet" href="/player.css" />
 <style>
   :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#5ad17a; --wrong:#ff5a5a; }
   * { box-sizing: border-box; }
@@ -116,6 +117,7 @@
   <div class="status" id="status"></div>
 </div>
 
+<script src="/player.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -193,16 +195,15 @@ async function loadRound() {
 
 function renderSongs() {
   $("#songs").innerHTML = currentRound.songs.map((s, i) => {
-    const frame = s.videoId
-      ? `<div class="frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(s.videoId)}?rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`
-      : `<div class="frame empty"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(s.fallbackQuery)}" target="_blank" rel="noopener">▶ YouTube</a></div>`;
     return `<div class="song" data-i="${i}">
-      ${frame}
+      ${mtPlayerHtml(s, { autoplay: false })}
       <div class="who">${esc(s.artist)} — ${esc(s.track)} <span class="y">${esc(s.year || "")}</span></div>
       <div class="pick"></div>
     </div>`;
   }).join("");
-  document.querySelectorAll(".song").forEach(el => el.addEventListener("click", () => {
+  bindPlayers($("#songs"));
+  document.querySelectorAll(".song").forEach(el => el.addEventListener("click", (e) => {
+    if (e.target.closest(".mt-player")) return; // don't count play taps as votes
     if (answered) return;
     const i = Number(el.dataset.i);
     answer(i);
