@@ -271,6 +271,110 @@ async function handleDontExist(req, res) {
   }
 }
 
+// ---------- Toy 6: Year Wars ----------
+
+const YEAR_WARS_SYSTEM = `Pick TWO real, commercially-released songs from clearly different decades (at least 8 years apart). Goal: make a listener guess wrong about which is older. Pick pairs where the modern-sounding one is actually old, or the vintage-sounding one is actually new.
+
+Return ONLY a JSON object:
+{
+  "song_a": { "artist": string, "track": string, "year": string },
+  "song_b": { "artist": string, "track": string, "year": string },
+  "twist": string                // ≤15 words — what makes this pair confusing on first listen
+}
+
+Rules:
+- Real, commercially released songs only.
+- Years must differ by 8+. Prefer pairs where intuition will be wrong.
+- Skip anything in "already_used".`;
+
+async function handleYearWars(req, res) {
+  try {
+    const { already_used } = await readBody(req);
+    const userMsg = `Already used (avoid):\n${(already_used || []).map((x) => `- ${x}`).join("\n") || "(none)"}`;
+    const round = await callClaude(YEAR_WARS_SYSTEM, userMsg, { maxTokens: 400, model: FAST_MODEL });
+    if (!round.song_a || !round.song_b) throw new Error("Bad round shape");
+    const [a, b] = await attachVideoIds([round.song_a, round.song_b]);
+    round.song_a = a; round.song_b = b;
+    sendJson(res, 200, { round });
+  } catch (e) {
+    sendJson(res, e.status || 500, { error: e.message });
+  }
+}
+
+// ---------- Toy 7: The Album Nobody Made ----------
+
+const ALBUM_SYSTEM = `User describes a hypothetical album that doesn't exist (e.g. "If Frank Ocean made a Christmas album", "The breakup album My Chemical Romance never wrote", "What Drake's gospel record would sound like"). Pick 5 REAL commercially-released songs that, played in sequence, would be a coherent album expressing that concept. Each track plays a different role.
+
+Return ONLY a JSON object:
+{
+  "headline": string,                // ONE sentence framing the imaginary album
+  "tracklist": [                     // exactly 5 entries, in playback order
+    {
+      "role": string,                // "Opener" | "Build" | "Centerpiece" | "Vulnerable cut" | "Closer"
+      "artist": string,
+      "track": string,
+      "year": string,
+      "why": string                  // ≤18 words — why this track at this slot
+    }
+  ]
+}
+
+Rules:
+- Real, commercially-released songs.
+- The 5 tracks must work as a SEQUENCE — building, peaking, resolving — not just 5 songs that match the vibe.
+- Pick songs from different artists where possible, unless the concept demands one artist.`;
+
+async function handleAlbum(req, res) {
+  try {
+    const { concept } = await readBody(req);
+    if (!concept || concept.length < 4) {
+      return sendJson(res, 400, { error: "Describe the album that doesn't exist." });
+    }
+    const album = await callClaude(ALBUM_SYSTEM, `Concept: ${concept}`, { maxTokens: 1200, model: FAST_MODEL });
+    if (!Array.isArray(album.tracklist) || album.tracklist.length !== 5) throw new Error("Bad album shape");
+    album.tracklist = await attachVideoIds(album.tracklist);
+    sendJson(res, 200, { album });
+  } catch (e) {
+    sendJson(res, e.status || 500, { error: e.message });
+  }
+}
+
+// ---------- Toy 8: Music Tarot ----------
+
+const TAROT_SYSTEM = `User tells you about their current moment, week, or state of mind. Draw their three "music tarot cards": Past, Present, Future. Each card is ONE real commercially-released song.
+
+- Past: a song that captures where they were, often nostalgic, an emotional anchor for what's been
+- Present: matches where they are RIGHT NOW
+- Future: aspirational — where they're heading, the energy they want, a bet on what's next
+
+Return ONLY a JSON object:
+{
+  "past":    { "artist": string, "track": string, "year": string, "why": string },
+  "present": { "artist": string, "track": string, "year": string, "why": string },
+  "future":  { "artist": string, "track": string, "year": string, "why": string },
+  "reading": string                  // 2 sentences. The overall arc the three songs trace. Mystical-leaning but specific.
+}
+
+Rules:
+- Real, commercially-released songs.
+- Each "why" is one short sentence with a specific musical detail tying it to the user's situation.
+- Avoid the obvious — this is supposed to feel like the cards revealed something.`;
+
+async function handleTarot(req, res) {
+  try {
+    const { mood } = await readBody(req);
+    if (!mood || mood.length < 4) {
+      return sendJson(res, 400, { error: "Tell me about your week first." });
+    }
+    const reading = await callClaude(TAROT_SYSTEM, `Querent's moment:\n${mood}`, { maxTokens: 800, model: FAST_MODEL });
+    const [past, present, future] = await attachVideoIds([reading.past, reading.present, reading.future]);
+    reading.past = past; reading.present = present; reading.future = future;
+    sendJson(res, 200, { reading });
+  } catch (e) {
+    sendJson(res, e.status || 500, { error: e.message });
+  }
+}
+
 // ---------- HTTP plumbing ----------
 
 async function readBody(req) {
@@ -323,6 +427,9 @@ const server = createServer(async (req, res) => {
     if (path === "/api/compass") return handleCompass(req, res);
     if (path === "/api/two-truths") return handleTwoTruths(req, res);
     if (path === "/api/dont-exist") return handleDontExist(req, res);
+    if (path === "/api/year-wars") return handleYearWars(req, res);
+    if (path === "/api/album") return handleAlbum(req, res);
+    if (path === "/api/tarot") return handleTarot(req, res);
   }
   if (req.method === "GET") return serveStatic(req, res, path);
   res.writeHead(405); res.end();

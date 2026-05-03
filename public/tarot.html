@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Music Tarot</title>
+<style>
+  :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#d4a3ff; --gold:#e0bb5e; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: radial-gradient(ellipse at top, #1a0e26 0%, var(--bg) 50%) no-repeat, var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; min-height: 100vh; }
+  a { color: inherit; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 96px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+  .top a { color: var(--mute); text-decoration: none; }
+
+  .hero { font-family: ui-serif, Georgia, "Times New Roman", serif; font-size: clamp(36px, 7vw, 56px); line-height: 1.05; letter-spacing: -0.01em; margin: 0 0 8px; font-weight: 700; }
+  .hero em { color: var(--gold); font-style: italic; }
+  .lede { color: var(--mute); margin: 0 0 28px; max-width: 60ch; font-size: 15px; }
+
+  textarea { width: 100%; min-height: 100px; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font: inherit; resize: vertical; outline: none; }
+  textarea:focus { border-color: var(--accent); }
+  .row { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+  button { background: var(--gold); color: #1f1407; border: none; border-radius: 12px; padding: 12px 24px; font: inherit; font-weight: 700; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+
+  .examples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .ex { font-size: 13px; color: var(--mute); padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+  .ex:hover { border-color: var(--accent); color: var(--ink); }
+
+  .status { margin-top: 16px; min-height: 22px; color: var(--mute); font-size: 14px; }
+  .err { color: #ff7070; }
+
+  .table { margin-top: 40px; display: none; perspective: 1200px; }
+  .table.show { display: block; }
+
+  .cards { display: grid; gap: 18px; grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+
+  .card {
+    aspect-ratio: 2/3; position: relative;
+    transform-style: preserve-3d;
+    transition: transform .8s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    user-select: none;
+  }
+  .card.flipped { transform: rotateY(180deg); cursor: default; }
+  .face {
+    position: absolute; inset: 0;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    border-radius: 14px; padding: 18px;
+    display: flex; flex-direction: column;
+  }
+  .face.back {
+    background: linear-gradient(135deg, #2a1a3d 0%, #1a0e26 50%, #2a1a3d 100%);
+    border: 2px solid var(--gold);
+    align-items: center; justify-content: center;
+    box-shadow: 0 20px 60px -20px rgba(212, 163, 255, 0.4);
+  }
+  .face.back::before, .face.back::after {
+    content: ""; position: absolute;
+    border: 1px solid rgba(224, 187, 94, 0.4); border-radius: 8px;
+  }
+  .face.back::before { inset: 8px; }
+  .face.back::after { inset: 16px; border-color: rgba(224, 187, 94, 0.2); }
+  .face.back .symbol {
+    font-family: ui-serif, Georgia, serif;
+    font-size: 64px; color: var(--gold); font-weight: 700;
+    transform: rotate(-12deg);
+    text-shadow: 0 0 30px rgba(224, 187, 94, 0.6);
+  }
+  .face.back .label {
+    position: absolute; bottom: 24px; left: 0; right: 0; text-align: center;
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--gold); letter-spacing: 0.2em; text-transform: uppercase;
+  }
+  .face.back .label-top {
+    position: absolute; top: 24px; bottom: auto;
+  }
+
+  .face.front {
+    transform: rotateY(180deg);
+    background: linear-gradient(180deg, var(--panel) 0%, #1c1424 100%);
+    border: 2px solid var(--gold);
+    box-shadow: 0 20px 60px -20px rgba(212, 163, 255, 0.4);
+  }
+  .face.front .ftitle {
+    font-family: ui-serif, Georgia, serif; font-size: 14px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--gold); margin-bottom: 12px; font-style: italic;
+  }
+  .face.front .frame { aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background:#000; border: 1px solid var(--line); position: relative; margin-bottom: 12px; }
+  .face.front .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
+  .face.front .frame.empty { display:flex; align-items:center; justify-content:center; }
+  .face.front .frame.empty a { padding: 8px 14px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; font-size: 12px; }
+  .face.front .who { font-weight: 700; font-size: 15px; line-height: 1.3; margin: 0; }
+  .face.front .who .y { color: var(--mute); font-size: 12px; margin-left: 4px; font-weight: 500; }
+  .face.front .why { color: var(--mute); font-size: 13px; line-height: 1.5; margin: 8px 0 0; }
+  .play-poster { position: absolute; inset: 0; cursor: pointer; background: #000; display: flex; align-items: center; justify-content: center; }
+  .play-poster img { width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
+  .play-poster .play-btn-big { position: absolute; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #000; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; padding-left: 3px; box-shadow: 0 0 30px rgba(0,0,0,0.6); }
+
+  .reading {
+    margin-top: 32px; padding: 22px 26px;
+    background: linear-gradient(180deg, var(--panel) 0%, #14101c 100%);
+    border: 1px solid var(--gold); border-radius: 14px;
+    font-family: ui-serif, Georgia, serif; font-size: 16px; line-height: 1.6;
+    color: var(--ink); font-style: italic;
+    display: none;
+  }
+  .reading.show { display: block; }
+  .reading::before {
+    content: "The reading"; display: block;
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--gold); letter-spacing: 0.2em; text-transform: uppercase;
+    font-style: normal; margin-bottom: 12px;
+  }
+
+  /* Loading */
+  .loader { display: none; padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; text-align: center; flex-direction: column; align-items: center; gap: 14px; margin-top: 24px; }
+  .loader.show { display: flex; }
+  .vinyl { position: relative; width: 80px; height: 80px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #1a1a22 0%, #1a1a22 22%, var(--gold) 23%, var(--gold) 26%, #0e0e14 27%, #1a1a22 32%, #0e0e14 33%, #1a1a22 38%, #0e0e14 39%, #1a1a22 44%, #0e0e14 45%, #1a1a22 50%, #0e0e14 51%, #1a1a22 56%, #0e0e14 57%, #1a1a22 62%, #0e0e14 63%, #1a1a22 100%); animation: spinVinyl 1.6s linear infinite; box-shadow: 0 0 30px rgba(224, 187, 94, 0.25); }
+  .vinyl::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--gold); transform: translate(-50%, -50%); box-shadow: inset 0 0 0 2px #0a0a0c; }
+  @keyframes spinVinyl { to { transform: rotate(360deg); } }
+  .load-msg { font-size: 14px; color: var(--mute); transition: opacity .2s ease; min-height: 20px; font-style: italic; font-family: ui-serif, Georgia, serif; }
+  .load-msg.fade { opacity: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/">← Music Toys</a>
+    <span>008 · Tarot</span>
+  </div>
+
+  <h1 class="hero">Three songs. <em>One reading.</em></h1>
+  <p class="lede">Tell me about your week, or this moment, or whatever's on you. The cards reveal three songs — past, present, future — for who you are right now.</p>
+
+  <textarea id="mood" placeholder='Anything. "I just quit my job." "Long day. Kids finally asleep." "Fell out of love this week." "Just turned 30."'></textarea>
+
+  <div class="row">
+    <button id="go">Draw the cards</button>
+    <button class="ghost" id="reset">Reshuffle</button>
+  </div>
+  <div class="examples">
+    <span class="ex" data-v="Just quit my job to do something I actually care about">just quit</span>
+    <span class="ex" data-v="Long day. Kids finally asleep. I'm tired but okay.">end of long day</span>
+    <span class="ex" data-v="Falling slowly back in love with the city I grew up in">back in my city</span>
+    <span class="ex" data-v="Friday and the week feels like it owes me something">friday energy</span>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div class="loader" id="loader"><div class="vinyl"></div><div class="load-msg" id="loadMsg">Shuffling the deck…</div></div>
+
+  <section class="table" id="table">
+    <div class="cards" id="cards"></div>
+    <div class="reading" id="reading"></div>
+  </section>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function isTouchDevice() { return window.matchMedia('(hover: none) and (pointer: coarse)').matches; }
+function loadPlayer(el, videoId) {
+  el.outerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+}
+function frameHtml(s) {
+  if (!s.videoId) return `<div class="frame empty"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(s.fallbackQuery)}" target="_blank" rel="noopener">▶ YouTube</a></div>`;
+  if (isTouchDevice()) return `<div class="frame"><div class="play-poster" onclick="loadPlayer(this, '${s.videoId}')"><img src="https://img.youtube.com/vi/${s.videoId}/hqdefault.jpg" alt="" /><div class="play-btn-big">▶</div></div></div>`;
+  return `<div class="frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(s.videoId)}?playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
+}
+
+document.querySelectorAll(".ex").forEach(el => el.addEventListener("click", () => { $("#mood").value = el.dataset.v; }));
+$("#go").addEventListener("click", go);
+$("#reset").addEventListener("click", () => { $("#mood").value = ""; $("#table").classList.remove("show"); $("#status").textContent = ""; });
+
+const LOAD_MSGS = ["Shuffling the deck…","Cutting the cards…","The cards know…","Listening to your moment…","Reading your aura (BPM)…","Cards are deciding…"];
+let loadInterval = null;
+function startLoading() {
+  $("#table").classList.remove("show");
+  $("#loader").classList.add("show");
+  let i = 0;
+  $("#loadMsg").textContent = LOAD_MSGS[i];
+  if (loadInterval) clearInterval(loadInterval);
+  loadInterval = setInterval(() => {
+    const el = $("#loadMsg"); el.classList.add("fade");
+    setTimeout(() => { i = (i + 1) % LOAD_MSGS.length; el.textContent = LOAD_MSGS[i]; el.classList.remove("fade"); }, 200);
+  }, 900);
+}
+function stopLoading() { $("#loader").classList.remove("show"); if (loadInterval) { clearInterval(loadInterval); loadInterval = null; } }
+
+const SYMBOLS = ["☾", "♢", "✦"];
+const TITLES = ["Past", "Present", "Future"];
+
+let currentReading = null;
+
+async function go() {
+  const mood = $("#mood").value.trim();
+  if (mood.length < 4) { $("#status").className = "status err"; $("#status").textContent = "Tell me a little more."; return; }
+  $("#status").className = "status";
+  $("#status").textContent = "";
+  startLoading();
+  $("#go").disabled = true;
+  try {
+    const res = await fetch("/api/tarot", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ mood }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    stopLoading();
+    currentReading = data.reading;
+    layout();
+  } catch (e) { stopLoading(); $("#status").className = "status err"; $("#status").textContent = e.message; }
+  finally { $("#go").disabled = false; }
+}
+
+function layout() {
+  const cards = [currentReading.past, currentReading.present, currentReading.future];
+  $("#cards").innerHTML = cards.map((c, i) => `
+    <div class="card" data-i="${i}">
+      <div class="face back">
+        <div class="label label-top">${TITLES[i]}</div>
+        <div class="symbol">${SYMBOLS[i]}</div>
+        <div class="label">Tap to flip</div>
+      </div>
+      <div class="face front">
+        <div class="ftitle">${TITLES[i]}</div>
+        ${frameHtml(c)}
+        <div class="who">${esc(c.artist)} — ${esc(c.track)}<span class="y">${esc(c.year || "")}</span></div>
+        <div class="why">${esc(c.why)}</div>
+      </div>
+    </div>`).join("");
+  document.querySelectorAll(".card").forEach(el => el.addEventListener("click", () => {
+    if (el.classList.contains("flipped")) return;
+    el.classList.add("flipped");
+    if ([...document.querySelectorAll(".card")].every(x => x.classList.contains("flipped"))) {
+      setTimeout(() => {
+        $("#reading").textContent = currentReading.reading || "";
+        $("#reading").classList.add("show");
+      }, 600);
+    }
+  }));
+  $("#reading").classList.remove("show");
+  $("#table").classList.add("show");
+  $("#table").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+</script>
+</body>
+</html>

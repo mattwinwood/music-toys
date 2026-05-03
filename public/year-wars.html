@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Year Wars</title>
+<style>
+  :root { --bg:#0a0a0c; --ink:#f5f5f7; --mute:#888892; --line:#25252d; --panel:#131318; --accent:#ff3d68; --green:#5ad17a; --red:#ff5a5a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+  .top a { color: var(--mute); text-decoration: none; }
+  .top a:hover { color: var(--ink); }
+
+  .hero { font-size: clamp(32px, 6vw, 48px); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; font-weight: 800; }
+  .hero em { color: var(--accent); font-style: italic; }
+  .lede { color: var(--mute); margin: 0 0 16px; max-width: 60ch; }
+
+  .scoreboard { display: flex; gap: 18px; align-items: baseline; margin: 14px 0 24px; flex-wrap: wrap; }
+  .score { font: 14px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--mute); }
+  .score b { color: var(--ink); font-size: 22px; font-weight: 700; margin-right: 4px; }
+  .score.streak b { color: var(--accent); }
+
+  .question { font-size: 17px; font-weight: 600; margin: 0 0 16px; color: var(--ink); }
+
+  .battle { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 720px) { .battle { grid-template-columns: 1fr; } }
+  .card-bet { background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 14px; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .card-bet:hover:not(.disabled) { border-color: var(--accent); transform: translateY(-2px); }
+  .card-bet.disabled { cursor: default; pointer-events: none; }
+  .card-bet.right { border-color: var(--green); }
+  .card-bet.wrong { border-color: var(--red); }
+  .card-bet.dim { opacity: 0.5; }
+  .frame { aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background:#000; border: 1px solid var(--line); position: relative; margin-bottom: 12px; }
+  .frame iframe { width: 100%; height: 100%; border: 0; position: absolute; inset: 0; }
+  .frame.empty { display:flex; align-items:center; justify-content:center; }
+  .frame.empty a { padding: 8px 14px; background: #ff0000; color: #fff; border-radius: 999px; font-weight: 700; text-decoration: none; font-size: 12px; }
+  .who { font-weight: 700; font-size: 16px; line-height: 1.3; }
+  .label { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mute); margin-bottom: 4px; }
+  .reveal { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; margin-top: 10px; display: none; }
+  .card-bet.shown .reveal { display: block; }
+  .card-bet.right .reveal { color: var(--green); }
+  .card-bet.wrong .reveal { color: var(--red); }
+
+  .play-poster { position: absolute; inset: 0; cursor: pointer; background: #000; display: flex; align-items: center; justify-content: center; }
+  .play-poster img { width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
+  .play-poster .play-btn-big { position: absolute; width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #000; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; padding-left: 4px; box-shadow: 0 0 30px rgba(0,0,0,0.6); }
+
+  .twist { margin: 18px 0; padding: 12px 16px; background: var(--panel); border-left: 3px solid var(--accent); border-radius: 8px; font-size: 14px; color: var(--ink); display: none; }
+  .twist.show { display: block; }
+  .twist b { color: var(--accent); }
+
+  .controls { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+  .controls button { background: var(--accent); color: #20060d; border: none; border-radius: 999px; padding: 12px 24px; font: inherit; font-weight: 700; cursor: pointer; }
+  .controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .controls button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+
+  .status { margin-top: 14px; font-size: 13px; color: var(--mute); min-height: 20px; }
+  .status.err { color: var(--red); }
+
+  /* Loading */
+  .loader { display: none; padding: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; text-align: center; flex-direction: column; align-items: center; gap: 14px; margin: 16px 0; }
+  .loader.show { display: flex; }
+  .vinyl { position: relative; width: 80px; height: 80px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #1a1a22 0%, #1a1a22 22%, var(--accent) 23%, var(--accent) 26%, #0e0e14 27%, #1a1a22 32%, #0e0e14 33%, #1a1a22 38%, #0e0e14 39%, #1a1a22 44%, #0e0e14 45%, #1a1a22 50%, #0e0e14 51%, #1a1a22 56%, #0e0e14 57%, #1a1a22 62%, #0e0e14 63%, #1a1a22 100%); animation: spinVinyl 1.6s linear infinite; box-shadow: 0 0 30px rgba(255, 61, 104, 0.25); }
+  .vinyl::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); transform: translate(-50%, -50%); box-shadow: inset 0 0 0 2px #0a0a0c; }
+  @keyframes spinVinyl { to { transform: rotate(360deg); } }
+  .load-msg { font-size: 14px; color: var(--mute); transition: opacity .2s ease; min-height: 20px; font-style: italic; }
+  .load-msg.fade { opacity: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/">← Music Toys</a>
+    <span>006 · Year Wars</span>
+  </div>
+
+  <h1 class="hero">Which is <em>older?</em></h1>
+  <p class="lede">Two songs, different decades. Listen to both, then bet on the older one. The genre fakes you out more often than you'd think.</p>
+
+  <div class="scoreboard">
+    <span class="score">Score <b id="score">0</b>/<span id="rounds">0</span></span>
+    <span class="score streak">Streak <b id="streak">0</b></span>
+    <span class="score">Best <b id="best">0</b></span>
+  </div>
+
+  <p class="question">Which one is older?</p>
+
+  <div class="loader" id="loader"><div class="vinyl"></div><div class="load-msg" id="loadMsg">Pulling two records…</div></div>
+
+  <div class="battle" id="battle"></div>
+
+  <div class="twist" id="twist"></div>
+
+  <div class="controls">
+    <button id="next" style="display:none">Next round →</button>
+    <button class="ghost" id="reset">Reset score</button>
+  </div>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+function isTouchDevice() { return window.matchMedia('(hover: none) and (pointer: coarse)').matches; }
+function loadPlayer(el, videoId) {
+  el.outerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+}
+function frameHtml(s) {
+  if (!s.videoId) return `<div class="frame empty"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(s.fallbackQuery)}" target="_blank" rel="noopener">▶ YouTube</a></div>`;
+  if (isTouchDevice()) return `<div class="frame"><div class="play-poster" onclick="loadPlayer(this, '${s.videoId}')"><img src="https://img.youtube.com/vi/${s.videoId}/hqdefault.jpg" alt="" /><div class="play-btn-big">▶</div></div></div>`;
+  return `<div class="frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(s.videoId)}?playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
+}
+
+let score = parseInt(localStorage.getItem("yw_score") || "0", 10);
+let rounds = parseInt(localStorage.getItem("yw_rounds") || "0", 10);
+let streak = 0;
+let best = parseInt(localStorage.getItem("yw_best") || "0", 10);
+let usedRounds = [];
+let currentRound = null;
+let answered = false;
+
+function updateScore() {
+  $("#score").textContent = score;
+  $("#rounds").textContent = rounds;
+  $("#streak").textContent = streak;
+  $("#best").textContent = best;
+}
+updateScore();
+
+const LOAD_MSGS = ["Pulling two records…","Crate-digging deep…","Cueing them up…","Picking a tricky pair…","Setting the trap…"];
+let loadInterval = null;
+function startLoading() {
+  $("#loader").classList.add("show");
+  $("#battle").innerHTML = "";
+  $("#twist").classList.remove("show");
+  $("#next").style.display = "none";
+  let i = 0;
+  $("#loadMsg").textContent = LOAD_MSGS[i];
+  if (loadInterval) clearInterval(loadInterval);
+  loadInterval = setInterval(() => {
+    const el = $("#loadMsg"); el.classList.add("fade");
+    setTimeout(() => { i = (i + 1) % LOAD_MSGS.length; el.textContent = LOAD_MSGS[i]; el.classList.remove("fade"); }, 200);
+  }, 800);
+}
+function stopLoading() { $("#loader").classList.remove("show"); if (loadInterval) { clearInterval(loadInterval); loadInterval = null; } }
+
+async function loadRound() {
+  startLoading();
+  answered = false;
+  try {
+    const res = await fetch("/api/year-wars", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ already_used: usedRounds.slice(-12) }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    currentRound = data.round;
+    usedRounds.push(`${data.round.song_a.artist}-${data.round.song_a.track}|${data.round.song_b.artist}-${data.round.song_b.track}`);
+    stopLoading();
+    renderBattle();
+  } catch (e) { stopLoading(); $("#status").className = "status err"; $("#status").textContent = e.message; }
+}
+
+function renderBattle() {
+  const a = currentRound.song_a, b = currentRound.song_b;
+  $("#battle").innerHTML = `
+    <div class="card-bet" data-pick="a">
+      ${frameHtml(a)}
+      <div class="label">A</div>
+      <div class="who">${esc(a.artist)} — ${esc(a.track)}</div>
+      <div class="reveal" id="revA"></div>
+    </div>
+    <div class="card-bet" data-pick="b">
+      ${frameHtml(b)}
+      <div class="label">B</div>
+      <div class="who">${esc(b.artist)} — ${esc(b.track)}</div>
+      <div class="reveal" id="revB"></div>
+    </div>`;
+  document.querySelectorAll(".card-bet").forEach(el => el.addEventListener("click", (e) => {
+    if (answered) return;
+    if (e.target.closest("iframe, .play-poster")) return; // don't count play-button taps as bets
+    answer(el.dataset.pick);
+  }));
+}
+
+function answer(pick) {
+  answered = true;
+  const yA = parseInt(currentRound.song_a.year, 10);
+  const yB = parseInt(currentRound.song_b.year, 10);
+  const olderPick = yA < yB ? "a" : "b";
+  const correct = pick === olderPick;
+
+  document.querySelectorAll(".card-bet").forEach(el => el.classList.add("disabled"));
+  const cardA = document.querySelector('.card-bet[data-pick="a"]');
+  const cardB = document.querySelector('.card-bet[data-pick="b"]');
+  cardA.classList.add("shown");
+  cardB.classList.add("shown");
+  $("#revA").textContent = currentRound.song_a.year;
+  $("#revB").textContent = currentRound.song_b.year;
+
+  if (olderPick === "a") cardA.classList.add("right"); else cardA.classList.add("dim");
+  if (olderPick === "b") cardB.classList.add("right"); else cardB.classList.add("dim");
+  if (!correct) document.querySelector(`.card-bet[data-pick="${pick}"]`).classList.add("wrong");
+
+  rounds++;
+  if (correct) {
+    score++; streak++; if (streak > best) best = streak;
+  } else {
+    streak = 0;
+  }
+  localStorage.setItem("yw_score", score);
+  localStorage.setItem("yw_rounds", rounds);
+  localStorage.setItem("yw_best", best);
+  updateScore();
+
+  if (currentRound.twist) {
+    $("#twist").innerHTML = `<b>${correct ? "✓ Got it" : "✗ Tricked"}.</b> ${esc(currentRound.twist)}`;
+    $("#twist").classList.add("show");
+  }
+  $("#next").style.display = "";
+}
+
+$("#next").addEventListener("click", loadRound);
+$("#reset").addEventListener("click", () => {
+  score = 0; rounds = 0; streak = 0; best = 0;
+  ["yw_score","yw_rounds","yw_best"].forEach(k => localStorage.removeItem(k));
+  updateScore();
+});
+
+loadRound();
+</script>
+</body>
+</html>
