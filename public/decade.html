@@ -339,7 +339,7 @@ let dragTimer = null;
 let lastPickAt = 0;
 const failedTags = new Set(); // tracks we couldn't play — exclude from future picks
 let unavailableRetries = 0;   // consecutive auto-fallback re-picks
-const MAX_UNAVAILABLE_RETRIES = 3;
+const MAX_UNAVAILABLE_RETRIES = 5;
 
 // Build decade ticks
 function buildTicks() {
@@ -559,6 +559,24 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&
 function render(p, where) {
   const tag = `${p.artist} — ${p.track}`;
   console.log("[decade] render pick:", tag, "preview:", p.preview ? p.preview.slice(0, 60) : "(none)");
+
+  // No preview from Deezer — never show "Try YouTube" to the user; just
+  // exclude this track and silently re-pick. Stay in the loading state
+  // so it feels like one fluid pick.
+  if (!p.preview) {
+    failedTags.add(tag);
+    if (unavailableRetries < MAX_UNAVAILABLE_RETRIES) {
+      unavailableRetries++;
+      status.className = "status";
+      status.textContent = "Finding a playable match…";
+      // Keep the loading skeleton visible — fetchPick will refresh it.
+      fetchPick(true, { isFallbackRetry: true });
+    } else {
+      status.className = "status err";
+      status.textContent = "Couldn't find a playable track here. Try a different spot.";
+    }
+    return;
+  }
   // Drop a trail dot at the previous pick's location (not the current one, since the puck is there)
   if (history.length > 0) {
     const prev = history[0];

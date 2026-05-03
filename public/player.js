@@ -20,8 +20,10 @@
   function escAttr(s) { return String(s ?? "").replace(/"/g, "&quot;"); }
   function escUrl(s) { return encodeURI(String(s ?? "")); }
 
-  // 1-frame silent WAV (used to "unlock" the audio element on first gesture).
-  const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAVFYAAFRWAAABAAgAZGF0YQAAAAA=";
+  // ~50ms silent MP3, base64-encoded. Known to play on iOS Safari, where
+  // empty/short WAV data URIs sometimes fail. Used to "unlock" the audio
+  // element on first user gesture.
+  const SILENT_MP3 = "data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/zQsRkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
 
   // ---------- Singleton audio + lifecycle ----------
   let audio = null;
@@ -34,6 +36,10 @@
     audio = new Audio();
     audio.preload = "auto";
     audio.playsInline = true;
+    // Pre-load the silent buffer so the unlock click doesn't have to wait for
+    // a data-URI parse. Real track src will replace this.
+    audio.src = SILENT_MP3;
+    try { audio.load(); } catch {}
 
     audio.addEventListener("play", () => {
       log("audio play, src:", (audio.src || "").slice(0, 60), "ct:", audio.currentTime.toFixed(2));
@@ -78,30 +84,35 @@
     return audio;
   }
 
-  // Unlock the singleton on the first user gesture. The unlock IS the gesture
-  // — a play() call on the audio element from inside a real pointerdown/keydown
-  // /touchstart handler — and once it succeeds the element stays "blessed".
+  // Unlock the singleton on the first user gesture. iOS Safari only counts
+  // click / touchend / keydown as "user activation" for media — pointer events
+  // and touchstart often don't qualify, so we listen broadly to catch the
+  // first qualifying event regardless of how the user interacts (tap, drag-
+  // release, keyboard).
   function armUnlock() {
     if (unlockArmed || unlocked) return;
     unlockArmed = true;
     const handler = (ev) => {
       if (unlocked) return;
-      unlocked = true;
-      const a = getAudio();
+      const a = getAudio(); // ensures audio + SILENT_MP3 src are ready
       try {
         a.muted = true;
-        a.src = SILENT_WAV;
         const p = a.play();
         const finish = (ok) => {
           a.pause();
           try { a.currentTime = 0; } catch {}
-          a.removeAttribute("src");
-          try { a.load(); } catch {}
           a.muted = false;
-          log("audio unlock", ok ? "succeeded" : "failed (silent fallback ok)");
+          unlocked = ok;
+          log("audio unlock " + (ok ? "succeeded" : "failed") + " (event: " + ev.type + ")");
         };
         if (p && typeof p.then === "function") {
-          p.then(() => finish(true)).catch(() => finish(false));
+          p.then(() => finish(true)).catch((err) => {
+            log("unlock play() rejected:", err && err.name, err && err.message);
+            finish(false);
+            // If the unlock failed (e.g., gesture wasn't trusted), leave the
+            // listeners armed so the next gesture gets another shot.
+            if (!ok) return;
+          });
         } else {
           finish(true);
         }
@@ -109,13 +120,20 @@
         log("unlock threw:", err && err.message);
         a.muted = false;
       }
-      document.removeEventListener("pointerdown", handler, true);
-      document.removeEventListener("keydown", handler, true);
-      document.removeEventListener("touchstart", handler, true);
+      // If unlock succeeded, remove listeners. Otherwise keep them for retry.
+      if (unlocked) {
+        ["click", "touchend", "pointerup", "keydown"].forEach((t) => {
+          document.removeEventListener(t, handler, true);
+        });
+      }
     };
-    document.addEventListener("pointerdown", handler, { capture: true });
+    // iOS Safari: click / touchend / keydown are the trusted activation events.
+    // We also listen for pointerup as a fallback for drag-release (it's a real
+    // user-initiated event even when click doesn't fire).
+    document.addEventListener("click", handler, { capture: true });
+    document.addEventListener("touchend", handler, { capture: true });
+    document.addEventListener("pointerup", handler, { capture: true });
     document.addEventListener("keydown", handler, { capture: true });
-    document.addEventListener("touchstart", handler, { capture: true });
   }
 
   function setIconsState(el, state) {
