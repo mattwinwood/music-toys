@@ -34,15 +34,22 @@
         <svg class="mt-icon-pause" viewBox="0 0 24 24" width="24" height="24" style="display:none"><path fill="currentColor" d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
       </button>
       <div class="mt-progress"><div class="mt-bar"></div></div>
-      <audio class="mt-audio" preload="auto" playsinline crossorigin="anonymous" src="${escUrl(preview)}"></audio>
+      <audio class="mt-audio" preload="auto" playsinline src="${escUrl(preview)}"></audio>
     </div>`;
   };
 
-  function emitUnavailable(el) {
+  const DEBUG = true; // flip to false to silence player logs
+  const log = (...args) => { if (DEBUG) console.log("[mt-player]", ...args); };
+
+  function emitUnavailable(el, reason) {
     if (!el || el.dataset.unavailableEmitted === "1") return;
+    // Only count if the element is still in the document — replaced/detached
+    // elements shouldn't trigger re-picks (their parent already moved on).
+    if (!el.isConnected) { log("skip emitUnavailable on detached element:", reason); return; }
     el.dataset.unavailableEmitted = "1";
+    log("emit mt-unavailable:", reason);
     setTimeout(() => {
-      el.dispatchEvent(new CustomEvent("mt-unavailable", { bubbles: true }));
+      el.dispatchEvent(new CustomEvent("mt-unavailable", { bubbles: true, detail: { reason } }));
     }, 0);
   }
 
@@ -51,7 +58,7 @@
     // Tracks with no preview at all — surface as unavailable so toys can re-pick.
     scope.querySelectorAll(".mt-player-fallback[data-unavailable='1']:not([data-bound])").forEach((el) => {
       el.setAttribute("data-bound", "1");
-      emitUnavailable(el);
+      emitUnavailable(el, "no-preview-url");
     });
     scope.querySelectorAll(".mt-player:not([data-bound])").forEach((el) => {
       el.setAttribute("data-bound", "1");
@@ -76,9 +83,11 @@
         const attempt = () => {
           if (audio.dataset.giveup === "1") return;
           playAttempts++;
+          log("play attempt", playAttempts, "readyState:", audio.readyState);
           const p = audio.play();
           if (p && typeof p.catch === "function") {
             p.catch((err) => {
+              log("play() rejected:", err && err.name, err && err.message);
               // NotAllowedError = autoplay blocked by browser policy. Don't keep retrying;
               // the toggle stays visible so the user can press play themselves.
               if (err && err.name === "NotAllowedError") {
@@ -91,8 +100,7 @@
                 audio.addEventListener("canplaythrough", onReady, { once: true });
                 audio.addEventListener("loadeddata", onReady, { once: true });
               } else {
-                // Out of retries with a load-related error — treat as unavailable.
-                emitUnavailable(el);
+                emitUnavailable(el, "play-retries-exhausted");
               }
             });
           }
@@ -107,8 +115,15 @@
         }
       }
 
-      // The audio source itself failed to load (404, CORS, network) — unavailable.
-      audio.addEventListener("error", () => emitUnavailable(el));
+      // Only flag the source as unavailable for *real* load failures —
+      // network and unsupported-source errors. ABORTED (e.g. element replaced
+      // mid-load) and DECODE are not unavailability signals for this UI.
+      audio.addEventListener("error", () => {
+        const code = audio.error ? audio.error.code : 0;
+        // 1 = MEDIA_ERR_ABORTED, 2 = MEDIA_ERR_NETWORK, 3 = MEDIA_ERR_DECODE, 4 = MEDIA_ERR_SRC_NOT_SUPPORTED
+        log("audio error, code:", code, "src:", audio.src.slice(0, 80));
+        if (code === 2 || code === 4) emitUnavailable(el, "audio-error-" + code);
+      });
 
       toggle.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -120,13 +135,13 @@
       });
 
       audio.addEventListener("play", () => {
-        // Solo mode: pause every other player on the page
+        log("audio play (currentTime:", audio.currentTime, ")");
         document.querySelectorAll(".mt-audio").forEach((a) => {
           if (a !== audio && !a.paused) a.pause();
         });
         setIcons("playing");
       });
-      audio.addEventListener("pause", () => setIcons("paused"));
+      audio.addEventListener("pause", () => { log("audio pause"); setIcons("paused"); });
       audio.addEventListener("ended", () => {
         setIcons("paused");
         bar.style.width = "100%";

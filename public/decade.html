@@ -558,6 +558,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&
 
 function render(p, where) {
   const tag = `${p.artist} — ${p.track}`;
+  console.log("[decade] render pick:", tag, "preview:", p.preview ? p.preview.slice(0, 60) : "(none)");
   // Drop a trail dot at the previous pick's location (not the current one, since the puck is there)
   if (history.length > 0) {
     const prev = history[0];
@@ -580,7 +581,8 @@ function render(p, where) {
   bindPlayers(frame);
 
   // If this track has no preview, or its audio fails to load, fall back to the next-closest pick.
-  frame.addEventListener("mt-unavailable", () => {
+  frame.addEventListener("mt-unavailable", (ev) => {
+    console.log("[decade] mt-unavailable for:", tag, "reason:", ev.detail && ev.detail.reason);
     failedTags.add(tag);
     history = history.filter(h => h.tag !== tag);
     renderHistory();
