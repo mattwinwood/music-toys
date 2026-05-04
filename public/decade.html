@@ -532,6 +532,13 @@ async function fetchPick(immediate = false, { isFallbackRetry = false } = {}) {
       signal: ctrl.signal,
     });
     const data = await res.json();
+    if (res.status === 429) {
+      stopLoadingState();
+      status.className = "status err";
+      status.textContent = data.error || "Daily limit reached. Try again tomorrow.";
+      frame.innerHTML = `<div class="skeleton">${esc(data.error || "Daily limit reached.")}</div>`;
+      return;
+    }
     if (!res.ok) throw new Error(data.error || "Request failed");
     stopLoadingState();
     render(data.pick, { x: cursor.x, y: cursor.y, year, energy });

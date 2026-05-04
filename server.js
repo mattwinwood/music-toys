@@ -425,6 +425,51 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+// ---------- Per-IP rate limiting ----------
+// Caps Anthropic spend by limiting how many /api/* requests one client can
+// make per rolling window. In-memory only — resets on container restart,
+// which is fine at this scale.
+
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 10);
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 24 * 60 * 60 * 1000);
+const rateBuckets = new Map(); // ip -> { count, resetAt }
+
+function clientIp(req) {
+  const xff = req.headers["x-forwarded-for"];
+  if (xff) return String(xff).split(",")[0].trim();
+  const cf = req.headers["cf-connecting-ip"];
+  if (cf) return String(cf).trim();
+  return (req.socket.remoteAddress || "unknown").replace(/^::ffff:/, "");
+}
+
+function checkRateLimit(req, res) {
+  const ip = clientIp(req);
+  const now = Date.now();
+  let entry = rateBuckets.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    rateBuckets.set(ip, entry);
+  }
+  if (entry.count >= RATE_LIMIT_MAX) {
+    const retryAfterSec = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+    res.writeHead(429, {
+      "content-type": "application/json; charset=utf-8",
+      "retry-after": String(retryAfterSec),
+    });
+    res.end(JSON.stringify({
+      error: `Daily limit reached (${RATE_LIMIT_MAX} picks per day). Try again later.`,
+      retryAfterSec,
+    }));
+    return false;
+  }
+  entry.count++;
+  // Opportunistic cleanup so the Map doesn't grow forever.
+  if (rateBuckets.size > 5000) {
+    for (const [k, v] of rateBuckets) if (v.resetAt <= now) rateBuckets.delete(k);
+  }
+  return true;
+}
+
 async function serveStatic(req, res, urlPath) {
   let rel = urlPath === "/" ? "/index.html" : urlPath;
   if (!extname(rel)) rel = `${rel}.html`;
@@ -448,7 +493,8 @@ async function serveStatic(req, res, urlPath) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const path = url.pathname;
-  if (req.method === "POST") {
+  if (req.method === "POST" && path.startsWith("/api/")) {
+    if (!checkRateLimit(req, res)) return;
     if (path === "/api/sound-of") return handleSoundOf(req, res);
     if (path === "/api/remember") return handleRemember(req, res);
     if (path === "/api/compass") return handleCompass(req, res);
